@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import date
@@ -42,7 +43,8 @@ from cellar.domain.shared.events import DomainEvent
 from cellar.infrastructure.parsers.tabular_file import TabularFileParser, parse_tabular
 
 
-_NADD_FIXTURE = "/Users/sidx/Downloads/NadD_LG-2200467564_100uM-DR_4.20.26.xlsx"
+# Real lab export, not in the repo: set NADD_FIXTURE=/path/to/file.xlsx to run these tests.
+_NADD_FIXTURE = os.environ.get("NADD_FIXTURE", "")
 
 
 # ---------------------------------------------------------------------------
@@ -1066,7 +1068,7 @@ class TestNadDFixtureRoundtrip:
             with open(_NADD_FIXTURE, "rb") as fh:
                 return fh.read()
         except FileNotFoundError:
-            pytest.skip(f"NadD fixture missing at {_NADD_FIXTURE}")
+            pytest.skip(f"NadD fixture missing (NADD_FIXTURE={_NADD_FIXTURE!r})")
 
     @pytest.mark.asyncio
     async def test_imports_two_plates_from_xlsx(self, fixture_bytes: bytes) -> None:

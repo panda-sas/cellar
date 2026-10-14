@@ -68,7 +68,7 @@ the blocking ones for the draft delete. It may be reusable.
 ## Working notes for the session
 
 - **Testing:**
-  - Tests using testcontainers need `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock`.
+  - Tests using testcontainers need `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock`.
   - The local dev stack runs on `:8000`/`:3000` (the backend reloads on file changes).
   - The dev DB container is `chem-vault2-postgres-1`.
 - **Git:**

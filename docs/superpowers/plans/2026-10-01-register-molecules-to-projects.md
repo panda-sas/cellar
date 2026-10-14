@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Backend tests touching the DB: `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest …` from `backend/`.
+- Backend tests touching the DB: `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest …` from `backend/`.
 - Backend lint: `uv run ruff check src tests/<touched files>` and `uv run ruff format` (line length 99).
 - Frontend: `pnpm exec tsc --noEmit -p .`, `pnpm exec vitest run <paths>`, `pnpm lint` (check the exit code, not piped output) from `frontend/`.
 - Commit with explicit pathspecs only: `git commit -m "…" -- <paths>` (the working tree carries unrelated user edits to `.gitignore`, `Makefile`, `frontend/next-env.d.ts`, `frontend/AGENTS.md` — never stage them).
@@ -100,7 +100,7 @@
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/test_project_scoping.py -k add_to_project_many -v`
+Run: `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/test_project_scoping.py -k add_to_project_many -v`
 Expected: FAIL — `AttributeError: 'SQLAlchemyMoleculeRepository' object has no attribute 'add_to_project_many'`
 
 - [ ] **Step 3: Add the protocol method** — in `backend/src/cellar/domain/chemical_registration/repository.py`, inside `class MoleculeRepository(Protocol)`, after `find_identifiers_in_workspace`:
@@ -161,7 +161,7 @@ Expected: FAIL — `AttributeError: 'SQLAlchemyMoleculeRepository' object has no
 
 - [ ] **Step 5: Run the repository tests**
 
-Run: `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/test_project_scoping.py -v`
+Run: `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/test_project_scoping.py -v`
 Expected: PASS (all, including the existing idempotency test)
 
 - [ ] **Step 6: Write the failing unit tests** — create `backend/tests/unit/application/research_organization/test_project_links.py`:
@@ -495,7 +495,7 @@ class TestBulkAddMoleculesToProject:
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api/test_projects.py -k "BulkAddMoleculesToProject" -v`
+Run: `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api/test_projects.py -k "BulkAddMoleculesToProject" -v`
 Expected: FAIL — bulk route returns 405 Method Not Allowed
 
 - [ ] **Step 3: Replace the use case** — in `manage_molecule_projects.py`, delete the `AddMoleculeToProjectCommand` / `AddMoleculeToProject` section (lines 34-105) and add in its place:
@@ -681,7 +681,7 @@ from cellar.interface.routes.collections import (
 
 - [ ] **Step 7: Run the tests**
 
-Run: `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api/test_projects.py tests/integration/test_project_scoping.py -v`
+Run: `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api/test_projects.py tests/integration/test_project_scoping.py -v`
 Expected: PASS (new + existing — `_create_molecule_in_project` still uses the single route)
 
 - [ ] **Step 8: Confirm nothing else imported the old use case**
@@ -758,7 +758,7 @@ from cellar.infrastructure.persistence.sqlalchemy.research_organization.molecule
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/test_project_scoping.py -k MergeSideEffect -v`
+Run: `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/test_project_scoping.py -k MergeSideEffect -v`
 Expected: FAIL — `ModuleNotFoundError`
 
 - [ ] **Step 3: Implement**
@@ -824,7 +824,7 @@ from cellar.infrastructure.persistence.sqlalchemy.research_organization.molecule
 
 - [ ] **Step 5: Run the tests**
 
-Run: `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/test_project_scoping.py tests/integration/test_tagging.py -k MergeSideEffect -v`
+Run: `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/test_project_scoping.py tests/integration/test_tagging.py -k MergeSideEffect -v`
 Expected: PASS
 
 - [ ] **Step 6: Commit**
@@ -953,7 +953,7 @@ async def test_identifier_conflict_links_nothing(
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api/test_molecules_register.py -v`
+Run: `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api/test_molecules_register.py -v`
 Expected: the new tests FAIL (link assertions see an empty set; archived case returns 201)
 
 - [ ] **Step 3: Command + constructor** — in `register_molecule.py`:
@@ -1048,7 +1048,7 @@ with imports `ProjectAccess` (application) and the two SQLAlchemy research-organ
 
 - [ ] **Step 8: Run the tests**
 
-Run: `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api/test_molecules_register.py tests/api/test_molecules.py tests/unit/application/chemical_registration -q -p no:cacheprovider`
+Run: `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api/test_molecules_register.py tests/api/test_molecules.py tests/unit/application/chemical_registration -q -p no:cacheprovider`
 Expected: new tests PASS; the only failures are the two pre-existing `TestMoleculeTestCounts` ones (`docs/backlog/test-molecules-api-drift.md`)
 
 - [ ] **Step 9: Commit**
@@ -1225,7 +1225,7 @@ async def test_bulk_upload_with_archived_project_starts_nothing(client: AsyncCli
 
 - [ ] **Step 4: Run to verify the three fail**
 
-Run: `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/unit/infrastructure/temporal tests/api/test_bulk_registration_projects.py -q -p no:cacheprovider`
+Run: `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/unit/infrastructure/temporal tests/api/test_bulk_registration_projects.py -q -p no:cacheprovider`
 Expected: FAIL (`ChunkInput` has no `project_ids`; `_continue_input` missing; molecule_count 0 / archived upload returns 200)
 
 - [ ] **Step 5: DTOs and request objects** —
@@ -1338,7 +1338,7 @@ def _continue_input(
 
 - [ ] **Step 10: Run the tests**
 
-Run: `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/unit/infrastructure/temporal tests/unit/application/chemical_registration tests/api/test_bulk_registration_projects.py -q -p no:cacheprovider`
+Run: `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/unit/infrastructure/temporal tests/unit/application/chemical_registration tests/api/test_bulk_registration_projects.py -q -p no:cacheprovider`
 Expected: PASS
 
 - [ ] **Step 11: Commit**
@@ -1522,7 +1522,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" -- frontend/src/shared/
 
 - [ ] **Step 1: Full backend suite**
 
-Run: `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/unit tests/api tests/integration -q -p no:cacheprovider`
+Run: `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/unit tests/api tests/integration -q -p no:cacheprovider`
 Expected: only the 3 known pre-existing failures (`test_pdf_renderer`, two `TestMoleculeTestCounts`).
 
 - [ ] **Step 2: Full frontend suite** — `pnpm exec vitest run` and `pnpm lint` (exit 0).

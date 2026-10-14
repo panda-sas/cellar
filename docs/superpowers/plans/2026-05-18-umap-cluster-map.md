@@ -66,7 +66,7 @@ Manual smoke checklist at the end of this doc covers verification after Task 27.
 - [ ] **Step 1: Add dep**
 
 ```bash
-cd /Users/sidx/workspace/chem-vault2/backend
+cd ~/workspace/chem-vault2/backend
 uv add umap-learn
 ```
 
@@ -162,7 +162,7 @@ def downgrade() -> None:
 - [ ] **Step 2: Apply against dev DB**
 
 ```bash
-cd /Users/sidx/workspace/chem-vault2/backend
+cd ~/workspace/chem-vault2/backend
 uv run alembic upgrade head
 ```
 
@@ -227,7 +227,7 @@ def test_umap_result_carries_full_payload() -> None:
 - [ ] **Step 2: Run + fail**
 
 ```bash
-cd /Users/sidx/workspace/chem-vault2/backend
+cd ~/workspace/chem-vault2/backend
 uv run pytest tests/unit/domain/sar_analysis/test_umap_types.py -v
 ```
 
@@ -2727,7 +2727,7 @@ git commit -m "feat(api): /api/v1/sar/umap-cluster endpoints (start, poll, cance
 - [ ] **Step 1: Regenerate**
 
 ```bash
-cd /Users/sidx/workspace/chem-vault2/frontend
+cd ~/workspace/chem-vault2/frontend
 pnpm orval
 ```
 
@@ -2937,7 +2937,7 @@ export function idsInsidePolygon(points: IdPoint[], poly: Point[]): string[] {
 - [ ] **Step 3: Run + pass**
 
 ```bash
-cd /Users/sidx/workspace/chem-vault2/frontend
+cd ~/workspace/chem-vault2/frontend
 pnpm vitest run src/features/sar-analysis/lib/lasso-math.test.ts
 ```
 
@@ -4135,7 +4135,7 @@ The save callback posts to `POST /api/v1/collections` (already shipped). Redirec
 - [ ] **Step 5: Run all FE tests + tsc**
 
 ```bash
-cd /Users/sidx/workspace/chem-vault2/frontend
+cd ~/workspace/chem-vault2/frontend
 pnpm vitest run
 pnpm exec tsc --noEmit
 ```

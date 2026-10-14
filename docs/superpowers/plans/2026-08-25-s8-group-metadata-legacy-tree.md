@@ -12,9 +12,9 @@
 
 ## Global Constraints
 
-- Backend commands run from `backend/` with `uv run …`; any `pytest` touching `tests/api` or `tests/integration` needs `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock`. Frontend commands run from `frontend/` with `/Users/sidx/Library/pnpm/pnpm` (bare `pnpm` is broken on this machine).
+- Backend commands run from `backend/` with `uv run …`; any `pytest` touching `tests/api` or `tests/integration` needs `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock`. Frontend commands run from `frontend/` with `~/Library/pnpm/pnpm` (bare `pnpm` is broken on this machine).
 - Layer rules (CLAUDE.md): Domain imports nothing; Application never imports Infrastructure/Interface.
-- Lint gates scoped to touched files: `uv run ruff check <files>` / `/Users/sidx/Library/pnpm/pnpm biome check <files>` exit 0; never `--fix`/`--write` repo-wide (repo-wide gates are red on `main` for pre-existing reasons).
+- Lint gates scoped to touched files: `uv run ruff check <files>` / `~/Library/pnpm/pnpm biome check <files>` exit 0; never `--fix`/`--write` repo-wide (repo-wide gates are red on `main` for pre-existing reasons).
 - Pre-existing test failures (do not fix, do not count): the 11 listed in `docs/backlog/preexisting-test-lint-failures-main.md` (`test_molecules.py` ×3, `require_same_workspace` integration ×6, `test_pdf_renderer`, `test_fk_coverage`).
 - **Numeric convention (deviation from spec §5's `Numeric(10,2)`):** the inventory context stores measurements as `float` / SQLAlchemy `Float` everywhere (`batches.amount_value`, `samples.concentration_value`); the two new measurements follow that: `initial_volume_ul: float | None`, `initial_concentration_mm: float | None`, DB `Float`. Record in the S8 sync note.
 - Field limits (spec §5): `state` ≤ 50 chars, `scientist` ≤ 200 chars, volume/concentration/compound_count ≥ 0. Empty/whitespace strings normalize to `None` (same as `group_type`).
@@ -287,7 +287,7 @@ def downgrade() -> None:
 
 - [ ] **Step 6: Run + lint**
 
-Run: `cd backend && uv run pytest tests/unit/test_plate_group.py tests/unit/test_plate_group_tree.py -q && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/inventory/test_plate_group_repository.py tests/api/test_plate_groups.py -q && uv run alembic heads && uv run ruff check src/cellar/domain/inventory/plate_group.py src/cellar/infrastructure/persistence/sqlalchemy/inventory/models.py src/cellar/infrastructure/persistence/sqlalchemy/inventory/plate_group_repository.py alembic/versions/067_plate_group_metadata.py tests/unit/test_plate_group.py`
+Run: `cd backend && uv run pytest tests/unit/test_plate_group.py tests/unit/test_plate_group_tree.py -q && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/inventory/test_plate_group_repository.py tests/api/test_plate_groups.py -q && uv run alembic heads && uv run ruff check src/cellar/domain/inventory/plate_group.py src/cellar/infrastructure/persistence/sqlalchemy/inventory/models.py src/cellar/infrastructure/persistence/sqlalchemy/inventory/plate_group_repository.py alembic/versions/067_plate_group_metadata.py tests/unit/test_plate_group.py`
 Expected: all PASS; `alembic heads` prints exactly `067_plate_group_metadata (head)`; ruff clean. (`test_plate_group_repository.py` fails on main only when the Docker socket env is missing — with `DOCKER_HOST` set it must be green.)
 
 - [ ] **Step 7: Commit**
@@ -576,7 +576,7 @@ class TestMetadata:
         assert by_id[mixed["id"]]["plate_format"] == "mixed"
 ```
 
-Run: `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/unit/test_plate_group_tree.py tests/api/test_plate_groups.py tests/api/test_plate_loans.py tests/api/test_plate_insights.py -q && uv run ruff check src/cellar/application/inventory/plate_groups.py src/cellar/domain/inventory/repository.py src/cellar/infrastructure/persistence/sqlalchemy/inventory/plate_group_repository.py src/cellar/interface/routes/plate_groups.py tests/unit/test_plate_group_tree.py tests/api/test_plate_groups.py`
+Run: `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/unit/test_plate_group_tree.py tests/api/test_plate_groups.py tests/api/test_plate_loans.py tests/api/test_plate_insights.py -q && uv run ruff check src/cellar/application/inventory/plate_groups.py src/cellar/domain/inventory/repository.py src/cellar/infrastructure/persistence/sqlalchemy/inventory/plate_group_repository.py src/cellar/interface/routes/plate_groups.py tests/unit/test_plate_group_tree.py tests/api/test_plate_groups.py`
 Expected: all PASS, ruff clean.
 
 - [ ] **Step 6: Commit**
@@ -673,7 +673,7 @@ Claude-Session: https://claude.ai/code/session_01HeExFT5oQrec5VbwQafNfu" -- back
 
 - [ ] **Step 1: Regenerate types**
 
-With the backend on `:8000` (it reloads automatically), from `frontend/`: `/Users/sidx/Library/pnpm/pnpm generate:api`. Inspect `git diff --stat src/shared/lib/api/model/` — expected: the four group DTO/body files gain the fields, new helper type files appear (e.g. `groupTreeNodeResponseState.ts`), `index.ts` gains their exports. Revert unrelated churn (`git checkout -- <file>`) only if a diff is not additive.
+With the backend on `:8000` (it reloads automatically), from `frontend/`: `~/Library/pnpm/pnpm generate:api`. Inspect `git diff --stat src/shared/lib/api/model/` — expected: the four group DTO/body files gain the fields, new helper type files appear (e.g. `groupTreeNodeResponseState.ts`), `index.ts` gains their exports. Revert unrelated churn (`git checkout -- <file>`) only if a diff is not additive.
 
 - [ ] **Step 2: Failing tests**
 
@@ -719,7 +719,7 @@ With the backend on `:8000` (it reloads automatically), from `frontend/`: `/User
   });
 ```
 
-Run: `/Users/sidx/Library/pnpm/pnpm vitest run src/features/inventory/components/plate-group-dialog.test.tsx src/features/inventory/components/plate-group-details.test.tsx`
+Run: `~/Library/pnpm/pnpm vitest run src/features/inventory/components/plate-group-dialog.test.tsx src/features/inventory/components/plate-group-details.test.tsx`
 Expected: the two new tests FAIL (labels/rows missing).
 
 - [ ] **Step 3: Dialog**
@@ -764,7 +764,7 @@ export function formatInitial(volumeUl: number | null | undefined, concentration
 
 - [ ] **Step 5: Type-check, lint, test**
 
-Run from `frontend/`: `/Users/sidx/Library/pnpm/pnpm tsc --noEmit && /Users/sidx/Library/pnpm/pnpm biome check src/features/inventory/components/plate-group-dialog.tsx src/features/inventory/components/plate-group-dialog.test.tsx src/features/inventory/components/plate-group-details.tsx src/features/inventory/components/plate-group-details.test.tsx; echo "biome exit=$?" && /Users/sidx/Library/pnpm/pnpm vitest run src/features/inventory`
+Run from `frontend/`: `~/Library/pnpm/pnpm tsc --noEmit && ~/Library/pnpm/pnpm biome check src/features/inventory/components/plate-group-dialog.tsx src/features/inventory/components/plate-group-dialog.test.tsx src/features/inventory/components/plate-group-details.tsx src/features/inventory/components/plate-group-details.test.tsx; echo "biome exit=$?" && ~/Library/pnpm/pnpm vitest run src/features/inventory`
 Expected: tsc clean, `biome exit=0`, tests PASS.
 
 - [ ] **Step 6: Commit**
@@ -852,7 +852,7 @@ describe("legendEntries", () => {
 ```
 (update the imports to `formatLabel, groupTypeColor, legendEntries, stateColor, truncateLabel, MAX_NODE_LABEL`; the `node()` helper stays.)
 
-Run: `/Users/sidx/Library/pnpm/pnpm vitest run src/features/inventory/components/plate-group-tree-utils.test.ts`
+Run: `~/Library/pnpm/pnpm vitest run src/features/inventory/components/plate-group-tree-utils.test.ts`
 Expected: FAIL (`stateColor`/`formatLabel` not exported; legend shape).
 
 - [ ] **Step 2: Utils**
@@ -1230,7 +1230,7 @@ In `plate-group-dashboard.tsx`:
 
 - [ ] **Step 6: Type-check, lint, test, and a real-browser check**
 
-Run from `frontend/`: `/Users/sidx/Library/pnpm/pnpm tsc --noEmit && /Users/sidx/Library/pnpm/pnpm biome check src/features/inventory/components/plate-group-tree-utils.ts src/features/inventory/components/plate-group-tree-utils.test.ts src/features/inventory/components/plate-group-tree.tsx src/features/inventory/components/plate-group-card.tsx src/features/inventory/components/plate-group-dashboard.tsx src/features/inventory/components/request-loan-dialog.tsx; echo "biome exit=$?" && /Users/sidx/Library/pnpm/pnpm vitest run src/features/inventory`
+Run from `frontend/`: `~/Library/pnpm/pnpm tsc --noEmit && ~/Library/pnpm/pnpm biome check src/features/inventory/components/plate-group-tree-utils.ts src/features/inventory/components/plate-group-tree-utils.test.ts src/features/inventory/components/plate-group-tree.tsx src/features/inventory/components/plate-group-card.tsx src/features/inventory/components/plate-group-dashboard.tsx src/features/inventory/components/request-loan-dialog.tsx; echo "biome exit=$?" && ~/Library/pnpm/pnpm vitest run src/features/inventory`
 Expected: tsc clean, `biome exit=0`, tests PASS.
 
 Then, with the dev servers running (`make dev-be` is up; frontend on `:3000`), open `http://localhost:3000/inventory/plate-groups` and confirm: a root selector appears, the tree is vertical with elbow links, circles are state-colored, cards show the metadata rows, the legend has State and Type rows, clicking a circle collapses/expands, "Details" opens the side panel, "Request loan" opens the loan dialog with the group preselected, and the page does not need extra scroll at a 1600×900 window (measure `document.documentElement.scrollHeight - window.innerHeight` ≤ 0 in the console). Note anything off in your report rather than papering over it.
@@ -1249,6 +1249,6 @@ Claude-Session: https://claude.ai/code/session_01HeExFT5oQrec5VbwQafNfu" -- fron
 
 ### Task 6: Suites, spec sync note, backlog close-out (controller, inline)
 
-- [ ] **Step 1:** `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest -q` → green except the 11 pre-existing; `cd frontend && /Users/sidx/Library/pnpm/pnpm vitest run` → green.
+- [ ] **Step 1:** `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest -q` → green except the 11 pre-existing; `cd frontend && ~/Library/pnpm/pnpm vitest run` → green.
 - [ ] **Step 2:** Append an "S8 sync note" to the spec (Float-not-Numeric deviation; viewport fix = recalibrated `16.25rem` constant rather than a flex slot; root selector lives in the dashboard header; anything else the implementers reported), and delete `docs/backlog/plate-groups-tree-viewport-overflow-baseline.md` (closed) with a one-line pointer in the sync note.
 - [ ] **Step 3:** Commit docs (`git add -f` for the spec/plan; `git rm` the backlog file), comment on issue #71.

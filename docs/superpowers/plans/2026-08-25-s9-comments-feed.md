@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Backend from `backend/` with `uv run …`; pytest touching `tests/api`/`tests/integration` needs `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock`. Frontend from `frontend/` with `/Users/sidx/Library/pnpm/pnpm`.
+- Backend from `backend/` with `uv run …`; pytest touching `tests/api`/`tests/integration` needs `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock`. Frontend from `frontend/` with `~/Library/pnpm/pnpm`.
 - Layer rules: Domain imports nothing; Application never imports Infrastructure/Interface. Protocol wideners must sweep **every** structural implementer of `AuthContext` (`tests/fakes/fake_auth.py::FakeAuth` — already has `name`/`email`; `application/export/row_streams/search_results.py::_AuthShim` — does not).
 - Lint scoped to touched files (`uv run ruff check <files>`, `pnpm biome check <files>`); never `--fix`/`--write` repo-wide. Pre-existing failures (ignore): the 11 in `docs/backlog/preexisting-test-lint-failures-main.md`.
 - Comment rules (spec §7): `target_type ∈ {plate_loan, plate_group, plate}`; `body` stripped, 1..5000 chars; `author_id` nullable (legacy import), `author_name` ≤ 200 denormalized at write; **no edit/delete**; hidden target == 404; write requires editor; reads require viewer. A comment's `loan_id`, when given, must be a visible loan that actually contains the target (a group among its plates' groups, or the plate itself).
@@ -478,7 +478,7 @@ async def test_round_trip_and_newest_first(session_factory) -> None:
 
 - [ ] **Step 6: Run + lint**
 
-Run: `uv run pytest tests/unit/test_comment.py tests/unit/cascade/test_fk_coverage.py -q && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/inventory/test_comment_repository.py -q && uv run alembic heads && uv run ruff check src/cellar/domain/inventory/comment.py src/cellar/domain/inventory/enums.py src/cellar/domain/inventory/events.py src/cellar/domain/inventory/repository.py src/cellar/infrastructure/persistence/sqlalchemy/inventory/comment_models.py src/cellar/infrastructure/persistence/sqlalchemy/inventory/comment_repository.py alembic/versions/068_plate_comments.py alembic/env.py tests/unit/test_comment.py tests/unit/cascade/test_fk_coverage.py tests/integration/inventory/test_comment_repository.py`
+Run: `uv run pytest tests/unit/test_comment.py tests/unit/cascade/test_fk_coverage.py -q && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/inventory/test_comment_repository.py -q && uv run alembic heads && uv run ruff check src/cellar/domain/inventory/comment.py src/cellar/domain/inventory/enums.py src/cellar/domain/inventory/events.py src/cellar/domain/inventory/repository.py src/cellar/infrastructure/persistence/sqlalchemy/inventory/comment_models.py src/cellar/infrastructure/persistence/sqlalchemy/inventory/comment_repository.py alembic/versions/068_plate_comments.py alembic/env.py tests/unit/test_comment.py tests/unit/cascade/test_fk_coverage.py tests/integration/inventory/test_comment_repository.py`
 Expected: PASS; single head `068_plate_comments`; ruff clean.
 
 - [ ] **Step 7: Commit**
@@ -1273,7 +1273,7 @@ Claude-Session: https://claude.ai/code/session_01HeExFT5oQrec5VbwQafNfu" -- back
 - Consumes: Task 2/3 API.
 - Produces: `useComments(scope: { targetType: CommentTarget; targetId: string } | { loanId: string }, opts?: { enabled?: boolean })` → `CommentResponse[]`; `useAddComment()` mutation `{ target_type, target_id, body, loan_id? }` invalidating `COMMENTS_KEY`; `<CommentFeed scope={…} canWrite={boolean} title?="Comments" />`.
 
-- [ ] **Step 1: Regen** — `/Users/sidx/Library/pnpm/pnpm generate:api`; keep the additive diff.
+- [ ] **Step 1: Regen** — `~/Library/pnpm/pnpm generate:api`; keep the additive diff.
 
 - [ ] **Step 2: Failing tests**
 
@@ -1427,7 +1427,7 @@ export function CommentFeed({
 
 - [ ] **Step 6: Type-check, lint, test**
 
-`/Users/sidx/Library/pnpm/pnpm tsc --noEmit && /Users/sidx/Library/pnpm/pnpm biome check <touched files>; echo "biome exit=$?" && /Users/sidx/Library/pnpm/pnpm vitest run src/features/inventory src/shared/hooks`
+`~/Library/pnpm/pnpm tsc --noEmit && ~/Library/pnpm/pnpm biome check <touched files>; echo "biome exit=$?" && ~/Library/pnpm/pnpm vitest run src/features/inventory src/shared/hooks`
 Expected: clean / 0 / PASS.
 
 - [ ] **Step 7: Commit**

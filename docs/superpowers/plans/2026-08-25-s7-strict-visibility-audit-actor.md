@@ -12,14 +12,14 @@
 
 ## Global Constraints
 
-- Backend commands run from `backend/` with `uv run …`; any `pytest` run that touches `tests/api` or `tests/integration` needs `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock` in the environment (Docker Desktop exposes no `/var/run/docker.sock` on this Mac; testcontainers errors with `Invalid response from docker daemon: key "ApiVersion"` without it); frontend commands run from `frontend/` with the full pnpm path `/Users/sidx/Library/pnpm/pnpm` (bare `pnpm` is broken on this machine).
+- Backend commands run from `backend/` with `uv run …`; any `pytest` run that touches `tests/api` or `tests/integration` needs `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock` in the environment (Docker Desktop exposes no `/var/run/docker.sock` on this Mac; testcontainers errors with `Invalid response from docker daemon: key "ApiVersion"` without it); frontend commands run from `frontend/` with the full pnpm path `~/Library/pnpm/pnpm` (bare `pnpm` is broken on this machine).
 - Layer rules (CLAUDE.md): Application never imports Infrastructure/Interface. The new port lives in `application/shared/`; the Duar adapter stays in `infrastructure/duar/`.
 - Commit with explicit pathspecs: `git commit -m "…" -- <paths>`; `git add <new files>` first for untracked files. Every commit message ends with the two trailer lines shown in Task 1 Step 6.
 - Hidden == 404 for plate/loan reads; 403 for org-scoped reads (tree, insights) of a foreign org. Do not change those status codes.
 - NULL `owner_org_id` plates stay visible to everyone (unchanged).
 - Never loosen a hidden-plate assertion to make a test pass; switch the *caller* to a non-admin fixture instead.
 - `docs/` is gitignored; the spec and plan files are force-added (`git add -f`).
-- Lint gates are scoped to the files a task touches: `uv run ruff check <changed files>` and `/Users/sidx/Library/pnpm/pnpm biome check <changed files>` must exit 0. Never run ruff/biome `--fix`/`--write` repo-wide — `pnpm lint` and repo-wide ruff are red on `main` for pre-existing reasons (`docs/backlog/preexisting-test-lint-failures-main.md`).
+- Lint gates are scoped to the files a task touches: `uv run ruff check <changed files>` and `~/Library/pnpm/pnpm biome check <changed files>` must exit 0. Never run ruff/biome `--fix`/`--write` repo-wide — `pnpm lint` and repo-wide ruff are red on `main` for pre-existing reasons (`docs/backlog/preexisting-test-lint-failures-main.md`).
 - Tests failing in the BASE baseline (`.superpowers/sdd/2026-08-25-s7-strict-visibility-audit-actor/baseline-*.txt`) are pre-existing: do not fix or adjust them; report them.
 
 ---
@@ -957,7 +957,7 @@ Claude-Session: https://claude.ai/code/session_01HeExFT5oQrec5VbwQafNfu" -- back
 
 With the backend running on `:8000` (`make dev-be` from the repo root — it runs `uv run uvicorn cellar.interface.app:app --reload --port 8000` and logs to the Makefile's `LOGDIR`), run from `frontend/`:
 
-`/Users/sidx/Library/pnpm/pnpm generate:api`
+`~/Library/pnpm/pnpm generate:api`
 
 Review `git diff src/shared/lib/api/model/` — the only intended change is the removal of `plates_private: boolean;` from `orgPlatePolicyResponse.ts` and `setOrgPlatePolicyBody.ts`. If the regen is impossible in this environment, delete those two lines by hand and say so in the commit body.
 
@@ -966,7 +966,7 @@ Review `git diff src/shared/lib/api/model/` — the only intended change is the 
 `org-plate-policy-dialog.test.tsx:11` — delete `plates_private: true,`.
 `use-org-plate-policy.test.tsx` — delete `plates_private: false,` (11) and both `plates_private: true,` lines (60, 75).
 
-Run: `/Users/sidx/Library/pnpm/pnpm vitest run src/features/inventory/components/org-plate-policy-dialog.test.tsx src/features/inventory/hooks/use-org-plate-policy.test.tsx`
+Run: `~/Library/pnpm/pnpm vitest run src/features/inventory/components/org-plate-policy-dialog.test.tsx src/features/inventory/hooks/use-org-plate-policy.test.tsx`
 Expected: the dialog test may still pass (it doesn't assert on the switch); the hook test FAILS on `toEqual` until the dialog/hook stop sending the field — proceed.
 
 `org-plate-policy-dialog.tsx`: remove the `Switch` import (line 20), `const [platesPrivate, setPlatesPrivate] = useState(false);` (49), `setPlatesPrivate(false);` (63), `setPlatesPrivate(policy.plates_private);` (72), `plates_private: platesPrivate,` (83), and the whole `<div className="flex items-center gap-2"> … Plates private to org … </div>` block (155-162). Docstring on line 37 → `/** Admin dialog to view/edit a single org's plate loan policy. */`.
@@ -1008,7 +1008,7 @@ Add one test to `request-loan-dialog.test.tsx` following its existing mocking st
 - [ ] **Step 6: Type-check, lint, test**
 
 Run from `frontend/`:
-`/Users/sidx/Library/pnpm/pnpm tsc --noEmit && /Users/sidx/Library/pnpm/pnpm biome check src/features/inventory/components/org-plate-policy-dialog.tsx src/features/inventory/components/org-plate-policy-dialog.test.tsx src/features/inventory/hooks/use-org-plate-policy.test.tsx src/features/inventory/components/plate-list.tsx src/features/inventory/components/plate-group-dashboard.tsx src/features/audit/components/audit-list.tsx src/features/inventory/components/request-loan-dialog.tsx src/features/inventory/components/request-loan-dialog.test.tsx; echo "biome exit=$?" && /Users/sidx/Library/pnpm/pnpm vitest run src/features/inventory src/features/audit`
+`~/Library/pnpm/pnpm tsc --noEmit && ~/Library/pnpm/pnpm biome check src/features/inventory/components/org-plate-policy-dialog.tsx src/features/inventory/components/org-plate-policy-dialog.test.tsx src/features/inventory/hooks/use-org-plate-policy.test.tsx src/features/inventory/components/plate-list.tsx src/features/inventory/components/plate-group-dashboard.tsx src/features/audit/components/audit-list.tsx src/features/inventory/components/request-loan-dialog.tsx src/features/inventory/components/request-loan-dialog.test.tsx; echo "biome exit=$?" && ~/Library/pnpm/pnpm vitest run src/features/inventory src/features/audit`
 Expected: tsc clean, `biome exit=0` (repo-wide `pnpm lint` is red on main for pre-existing reasons — judge only the touched files, by exit code), tests PASS.
 
 - [ ] **Step 7: Commit**
@@ -1158,7 +1158,7 @@ class TestOwnerLends:
         assert [i["status"] for i in loan["items"]] == ["requested"]  # default policy: approval required
 ```
 
-Run: `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api/test_plate_loans.py -q -k TestOwnerLends`
+Run: `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api/test_plate_loans.py -q -k TestOwnerLends`
 Expected: FAIL — `422` from `extra: "forbid"` on `borrower_org_id` for every test.
 
 - [ ] **Step 2: Command + constructor**
@@ -1228,7 +1228,7 @@ Replace the block from `loan = PlateLoan.request(` through the self-serve `loan.
 
 - [ ] **Step 5: Run + lint**
 
-Run: `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api/test_plate_loans.py tests/api/test_kiosk.py -q && uv run ruff check src/cellar/application/inventory/plate_loans.py src/cellar/interface/routes/plate_loans.py src/cellar/infrastructure/di/_inventory.py tests/api/test_plate_loans.py`
+Run: `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api/test_plate_loans.py tests/api/test_kiosk.py -q && uv run ruff check src/cellar/application/inventory/plate_loans.py src/cellar/interface/routes/plate_loans.py src/cellar/infrastructure/di/_inventory.py tests/api/test_plate_loans.py`
 Expected: all PASS (the six new tests + every existing loan/kiosk test), ruff clean.
 
 - [ ] **Step 6: Commit**

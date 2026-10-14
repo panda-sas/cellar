@@ -11,7 +11,7 @@
 ## Global constraints
 
 - Read `docs/backend-code-guidelines.md` and `docs/patterns-and-conventions.md` before backend code.
-- Backend tests: `cd backend && uv run pytest tests/unit/... -q`; `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/... tests/api/... -q`. Lint: `cd backend && uv run ruff check src && uv run ruff format src` (src only, matches CI).
+- Backend tests: `cd backend && uv run pytest tests/unit/... -q`; `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/... tests/api/... -q`. Lint: `cd backend && uv run ruff check src && uv run ruff format src` (src only, matches CI).
 - Frontend checks: `cd frontend && pnpm vitest run src/features/screen-campaign src/features/research-organization && pnpm exec biome check src/features && pnpm exec tsc --noEmit -p .` — verify by exit code.
 - Use cases return `Failure(DomainError)`, never raise: `ValidationError` → 422, `ConflictError` → 409, `NotFoundError` → 404, `DataLockedError` → 423.
 - Migration numbering: `077_campaign_stage_kind` revises `076_campaign_drop_decision`. Apply it to the dev DB after writing it (`cd backend && uv run alembic upgrade head`) so the reloading dev backend on :8000 keeps serving.
@@ -189,7 +189,7 @@ Paths relative to `backend/src/cellar/` unless prefixed `backend/tests/`, `backe
 
 ### Task 7: Whole-branch verification and hand-off
 
-- Backend: `cd backend && uv run pytest tests/unit -q`; `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration tests/api -q`; `uv run ruff check src`. Pre-existing failures per `docs/backlog/pre-existing-test-failures.md` and `test-molecules-api-drift.md`.
+- Backend: `cd backend && uv run pytest tests/unit -q`; `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration tests/api -q`; `uv run ruff check src`. Pre-existing failures per `docs/backlog/pre-existing-test-failures.md` and `test-molecules-api-drift.md`.
 - Frontend: `cd frontend && pnpm vitest run && pnpm exec biome check src && pnpm exec tsc --noEmit -p .`.
 - Dev DB is at migration 077 (`uv run alembic current`).
 - One whole-branch review, one fix wave, one scoped re-review; push; PR against `main` referencing #75 with the D2/D3 contract notes; merge per the owner's instruction; report commit hashes to the consumer session.

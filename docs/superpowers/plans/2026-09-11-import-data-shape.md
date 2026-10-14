@@ -11,7 +11,7 @@
 ## Global constraints
 
 - Read `docs/backend-code-guidelines.md` and `docs/patterns-and-conventions.md` before backend code.
-- Backend tests: `cd backend && uv run pytest tests/unit/...` (no Docker); `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/... tests/api/...` (testcontainers).
+- Backend tests: `cd backend && uv run pytest tests/unit/...` (no Docker); `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/... tests/api/...` (testcontainers).
 - Frontend checks: `cd frontend && pnpm vitest run src/features/screening-assay src/features/screen-campaign src/features/research-organization && pnpm exec biome check src/features && pnpm exec tsc --noEmit -p .`
 - Commit with explicit pathspecs (`git commit -m … -- <paths>`); the working tree carries unrelated user changes (`frontend/next-env.d.ts`, `frontend/AGENTS.md`) — never sweep them in. No `Claude-Session` trailer; keep `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 - Errors are returned as `Failure(DomainError)`, never raised from use cases: `ValidationError` → 422, `ConflictError` → 409, `NotFoundError` → 404 (`interface/error_handlers.py`).
@@ -184,7 +184,7 @@ A run is **welled** when `run.wells` is non-empty; **well-less** when it has raw
 
 ### Task 5: Whole-branch verification and hand-off
 
-- Run: `cd backend && uv run pytest tests/unit -q`, then `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration tests/api -q`, then `uv run ruff check src tests && uv run ruff format --check src tests`.
+- Run: `cd backend && uv run pytest tests/unit -q`, then `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration tests/api -q`, then `uv run ruff check src tests && uv run ruff format --check src tests`.
 - Run: `cd frontend && pnpm vitest run && pnpm exec biome check src && pnpm exec tsc --noEmit -p .` — verify by exit code.
 - Pre-existing failures: compare against `docs/backlog/pre-existing-test-failures.md` and `preexisting-test-lint-failures-main.md`; anything new is ours.
 - One whole-branch review (superpowers:requesting-code-review), fix findings, push, open the PR against `main` referencing #74 with the spec §3 summary and the two new 409/422 behaviours called out.

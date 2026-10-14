@@ -171,4 +171,4 @@ Server-side `stage_id` / `outcome` filters need every row evaluated (outcomes ar
 - One plan document per batch via `superpowers:writing-plans`, executed with subagent-driven development, focused tests per task, one whole-branch review per batch.
 - One GitHub issue per batch on `sidxz/cellar`, linked to the project board.
 - Explicit-pathspec commits; `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`; no session trailer.
-- Backend `tests/api` and `tests/integration` need `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock`. Orval regen per batch with version-stamp churn reverted.
+- Backend `tests/api` and `tests/integration` need `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock`. Orval regen per batch with version-stamp churn reverted.

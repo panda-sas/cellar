@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import uuid
 
 import pytest
@@ -30,7 +31,8 @@ def _make_table(headers: list[str], rows: list[dict[str, str]]) -> ParsedTable:
     return ParsedTable(headers=headers, rows=rows, source_format="csv")
 
 
-_NADD_FIXTURE = "/Users/sidx/Downloads/NadD_LG-2200467564_100uM-DR_4.20.26.xlsx"
+# Real lab export, not in the repo: set NADD_FIXTURE=/path/to/file.xlsx to run these tests.
+_NADD_FIXTURE = os.environ.get("NADD_FIXTURE", "")
 
 
 # ---------------------------------------------------------------------------
@@ -482,7 +484,7 @@ class TestNadDFixture:
             with open(_NADD_FIXTURE, "rb") as fh:
                 return parse_tabular(fh.read(), _NADD_FIXTURE)
         except FileNotFoundError:
-            pytest.skip(f"NadD fixture missing at {_NADD_FIXTURE}")
+            pytest.skip(f"NadD fixture missing (NADD_FIXTURE={_NADD_FIXTURE!r})")
 
     def test_infer_mapping_finds_core_roles(self, fixture_table: ParsedTable) -> None:
         s = infer_mapping(fixture_table)

@@ -2,7 +2,7 @@
 
 Date: 2026-05-17
 Branch: `prot-2`
-Parent design: `/Users/sidx/.claude/plans/lets-look-at-our-lazy-nygaard.md` (V2 section)
+Parent design: `~/.claude/plans/lets-look-at-our-lazy-nygaard.md` (V2 section)
 Predecessor: Collections V1 + V1.5 (shipped on `prot-2`, smoke pending)
 
 ---

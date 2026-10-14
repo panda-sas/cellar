@@ -529,7 +529,7 @@ def _closed_legacy_with_library() -> LegacyData:
             LegacyPlate(2, None, "000002", "P2", "Active", "MASTER", 10, 2507),
         ],
         transactions=[LegacyTransaction(5001, "CLOSED", 7, t0)],
-        accounts=[LegacyAccount(7, "jdoe", "j@tamu.edu", None, None, None)],
+        accounts=[LegacyAccount(7, "jdoe", "j@example.org", None, None, None)],
         activities=[
             LegacyActivity(1, "T_REQ_CMT", 5001, None, None,
                            SYS + "Plate P1 has been approved. Please scan them out from vault",

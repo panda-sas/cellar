@@ -7,7 +7,7 @@
 **Spec:** `docs/superpowers/specs/2026-08-26-shipment-container-spec.md` — read it first.
 
 ## Global Constraints
-Identical to `docs/superpowers/plans/2026-08-26-s15-run-plate-inventory-link.md` "Global Constraints" (read them) — guidelines first, guard order, Railway, workspace scoping, ruff/pytest (`DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock` for API/integration), biome/tsc, generated types only, **subagents never commit**, exactly one migration `071_shipment_container` (revises `070_plate_group_collection`).
+Identical to `docs/superpowers/plans/2026-08-26-s15-run-plate-inventory-link.md` "Global Constraints" (read them) — guidelines first, guard order, Railway, workspace scoping, ruff/pytest (`DOCKER_HOST=unix://$HOME/.docker/run/docker.sock` for API/integration), biome/tsc, generated types only, **subagents never commit**, exactly one migration `071_shipment_container` (revises `070_plate_group_collection`).
 
 ## File map
 | Task | Files |

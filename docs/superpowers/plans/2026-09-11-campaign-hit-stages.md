@@ -15,7 +15,7 @@
 ## Global constraints
 
 - Branch: `feat/campaign-hit-stages`. Commit after every task with explicit pathspecs: `git commit -m "..." -- <paths>` (the working tree carries unrelated user changes: `frontend/next-env.d.ts`, `frontend/AGENTS.md` — never sweep them in). Trailer: `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`. Never add a `Claude-Session:` trailer.
-- Backend commands run from `backend/`: `uv run pytest tests/unit -q`; integration + API: `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration tests/api -q` (Docker Desktop must be running). `uv run lint-imports` must stay green (layer rules in `docs/backend-code-guidelines.md`).
+- Backend commands run from `backend/`: `uv run pytest tests/unit -q`; integration + API: `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration tests/api -q` (Docker Desktop must be running). `uv run lint-imports` must stay green (layer rules in `docs/backend-code-guidelines.md`).
 - Frontend commands run from `frontend/`: `pnpm lint` (biome, gate by exit code), `pnpm exec tsc --noEmit`, `pnpm test`.
 - Backend rules: read `docs/backend-code-guidelines.md` and `docs/patterns-and-conventions.md` before writing. Railway pattern (`returns.result`), `require_editor` / `require_same_workspace` guards, UoW + repo + dispatcher constructor injection, `Failure(NotFoundError|ValidationError|ConflictError)` never raised across the boundary.
 - Error mapping (existing): `ValidationError`→422, `ConflictError`→409, `NotFoundError`→404, `DataLockedError`→423.

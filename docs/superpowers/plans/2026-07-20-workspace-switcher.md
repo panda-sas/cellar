@@ -12,7 +12,7 @@
 
 - **No new dependencies.** Everything used is already installed.
 - **localStorage key is exactly** `cellar.lastWorkspaceId`.
-- **All frontend commands run from** `/Users/sidx/workspace/chem-vault2/frontend`.
+- **All frontend commands run from** `~/workspace/chem-vault2/frontend`.
 - **Commits:** Conventional Commits style; ALWAYS explicit pathspec (`git commit -m "..." -- <paths>`) — the working tree may hold unrelated user work; never `git add -A` / blanket-add. End commit messages with `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 - **`pnpm lint` passes/fails by exit code** (biome format violations are error-severity even though lint rules are warn) — check the exit code, not piped output.
 - **Vitest does not typecheck** (esbuild strips types). `pnpm build` in Task 3 is the type gate.
@@ -240,7 +240,7 @@ Expected: exit code 0. If format errors: `pnpm lint:fix` (never with `--unsafe`)
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /Users/sidx/workspace/chem-vault2
+cd ~/workspace/chem-vault2
 git add frontend/src/shared/lib/auth/workspace-memory.ts frontend/src/app/auth/callback/workspace-selector.tsx frontend/src/app/auth/callback/workspace-selector.test.tsx frontend/src/app/auth/callback/page.tsx
 git commit -m "feat(frontend): remember last workspace; auto-skip login picker
 
@@ -445,7 +445,7 @@ Expected: both exit 0; full suite green.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/sidx/workspace/chem-vault2
+cd ~/workspace/chem-vault2
 git add frontend/src/shared/components/layout/header.tsx frontend/src/shared/components/layout/header.test.tsx
 git commit -m "feat(frontend): header user menu with Switch workspace (daikon parity)
 
@@ -499,7 +499,7 @@ Replace the "## Files touched" section body with:
 - [ ] **Step 3: Commit spec sync**
 
 ```bash
-cd /Users/sidx/workspace/chem-vault2
+cd ~/workspace/chem-vault2
 git add docs/superpowers/specs/2026-07-20-workspace-switcher-design.md
 git commit -m "docs: mark workspace-switcher spec implemented
 

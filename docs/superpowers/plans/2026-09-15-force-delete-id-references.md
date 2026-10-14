@@ -20,7 +20,7 @@
 - Branch: `feat/force-delete-id-references`. Commit with explicit pathspecs (`git commit -m "…" -- <paths>`); the working tree has unrelated user changes (`frontend/next-env.d.ts`, `frontend/AGENTS.md`) that must never be committed.
 - Commit trailer: `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`. Never add a `Claude-Session:` trailer.
 - `docs/` is gitignored: add doc files with `git add -f`.
-- Backend commands run from `backend/`. Unit tests: `uv run pytest tests/unit/<path> -q`. Integration and API tests need Docker: `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/<path> -q`.
+- Backend commands run from `backend/`. Unit tests: `uv run pytest tests/unit/<path> -q`. Integration and API tests need Docker: `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/<path> -q`.
 - Backend lint: `uv run ruff check src/ <touched test paths>`, `uv run ruff format src/ <touched test paths>`, and `uv run lint-imports`.
 - Frontend commands run from `frontend/`: `pnpm test`, `pnpm lint` (judge by exit code, not piped output), `pnpm exec tsc --noEmit`.
 - pytest runs in asyncio auto mode: write `async def test_…` with no decorator.
@@ -1037,7 +1037,7 @@ In `backend/tests/api/test_admin_delete.py::TestCascadeTier2::test_cascade_previ
 
 - [x] **Step 4: Run the tests to verify they fail**
 
-Run: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/cascade/test_cascade_plan.py tests/unit/application/admin/test_cascade_delete_blocked.py -q`
+Run: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/cascade/test_cascade_plan.py tests/unit/application/admin/test_cascade_delete_blocked.py -q`
 Expected: FAIL. `CascadeBlockedError` can't be imported and `CascadeRunner` has no `plan`.
 
 - [x] **Step 5: Replace the application types**
@@ -1659,7 +1659,7 @@ class CascadePreviewResponse(CascadeNodeResponse):
 Run:
 ```bash
 cd backend && uv run pytest tests/unit/application/admin/ tests/unit/infrastructure/cascade/ tests/unit/cascade/ -q
-DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/cascade/ tests/api/test_admin_delete.py -q
+DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/cascade/ tests/api/test_admin_delete.py -q
 ```
 Expected: PASS, including every pre-existing cascade test. `test_execute_deletes_more_rows_than_asyncpg_can_bind` takes a few seconds.
 
@@ -1724,7 +1724,7 @@ async def test_a_rule_reference_blocks_tier1_whatever_its_action(
 
 - [x] **Step 2: Run it to verify it fails**
 
-Run: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/cascade/test_inbound_refs.py -q`
+Run: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/cascade/test_inbound_refs.py -q`
 Expected: FAIL, with `ValueError: not enough values to unpack` (no rule blocker).
 
 - [x] **Step 3: Replace `inbound_refs.py`**
@@ -1870,7 +1870,7 @@ async def _reference(
 
 - [x] **Step 4: Run the tests to verify they pass**
 
-Run: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/cascade/ tests/api/test_admin_delete.py -q`
+Run: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/cascade/ tests/api/test_admin_delete.py -q`
 Expected: PASS (the new test plus the existing inbound-ref, workspace-isolation and API tests).
 
 - [x] **Step 5: Lint and commit**
@@ -2138,7 +2138,7 @@ Append to `backend/tests/api/test_admin_delete.py::TestAdminHardDelete`:
 
 - [x] **Step 2: Run them to verify they fail**
 
-Run: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/cascade/test_rules_protocols_runs.py "tests/api/test_admin_delete.py::TestCascadeTier2::test_cascade_delete_blocked_returns_every_blocker" "tests/api/test_admin_delete.py::TestAdminHardDelete::test_a_rule_reference_blocks_tier1_hard_delete" -q`
+Run: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/cascade/test_rules_protocols_runs.py "tests/api/test_admin_delete.py::TestCascadeTier2::test_cascade_delete_blocked_returns_every_blocker" "tests/api/test_admin_delete.py::TestAdminHardDelete::test_a_rule_reference_blocks_tier1_hard_delete" -q`
 Expected: FAIL. With no rules registered there are no blockers or warnings: the cascade delete returns 204 and the Tier-1 delete returns 204.
 
 - [x] **Step 3: Add the attachment rules**
@@ -2400,7 +2400,7 @@ Append inside `register_rules(...)` in `backend/src/cellar/infrastructure/cascad
 Run:
 ```bash
 cd backend && uv run pytest tests/unit/cascade/ tests/unit/infrastructure/cascade/ -q
-DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/cascade/ tests/api/test_admin_delete.py tests/integration/test_protocol_find_usages.py -q
+DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/cascade/ tests/api/test_admin_delete.py tests/integration/test_protocol_find_usages.py -q
 ```
 Expected: PASS.
 
@@ -2657,7 +2657,7 @@ async def test_links_from_records_that_stay_are_cleared_and_audited(
 
 - [x] **Step 2: Run them to verify they fail**
 
-Run: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/cascade/test_rules_molecules_batches.py -q`
+Run: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/cascade/test_rules_molecules_batches.py -q`
 Expected: FAIL. Only `test_a_campaign_row_for_the_molecule_blocks` passes, because Task 4 registered M2. The rest fail: either there are no blockers, or the delete raises `IntegrityError` on `cdd_molecule_sync` / `merge_events.disclosure_request_id`.
 
 - [x] **Step 3: Add the screening rules**
@@ -2948,7 +2948,7 @@ In `backend/src/cellar/infrastructure/cascade/rules_chemical_registration.py`:
 Run:
 ```bash
 cd backend && uv run pytest tests/unit/cascade/ tests/unit/infrastructure/cascade/ tests/unit/domain/shared/cascade/ -q
-DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/cascade/ tests/api/test_admin_delete.py -q
+DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/cascade/ tests/api/test_admin_delete.py -q
 ```
 Expected: PASS.
 
@@ -3853,8 +3853,8 @@ Check `git show --stat HEAD` lists only real API type changes under `src/shared/
 ```bash
 cd backend && uv run ruff check src/ && uv run ruff format --check src/ && uv run lint-imports
 uv run pytest tests/unit -q
-DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration -q
-DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api/test_admin_delete.py -q
+DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration -q
+DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api/test_admin_delete.py -q
 cd ../frontend && pnpm test && pnpm exec tsc --noEmit && pnpm lint; echo "lint exit=$?"
 ```
 Expected: everything passes. Compare any failure against `docs/backlog/pre-existing-test-failures.md` and `docs/backlog/preexisting-test-lint-failures-main.md`. Failures already on `main` get noted in the PR, not fixed here. Anything new is this branch's problem.

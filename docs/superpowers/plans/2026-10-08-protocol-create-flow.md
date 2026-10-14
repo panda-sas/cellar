@@ -19,7 +19,7 @@
 - Never hand-roll a TypeScript interface that mirrors a backend DTO; alias the generated type.
 - DDD layers: domain imports nothing from application/infrastructure/interface. New use cases get DI (`infrastructure/di/_*.py`), a `…Dep` (`interface/dependencies/_*.py`, added to `__all__`), and a route.
 - Commits: `git commit -m "…" -- <paths>` (explicit paths; never sweep in `.gitignore`, `Makefile`, `frontend/next-env.d.ts`, `frontend/AGENTS.md`), message ends with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`; no Claude-Session trailer.
-- Backend tests: `cd backend && uv run pytest <path> -q -p no:warnings`. Integration/API tests need `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock`. Known pre-existing failure: `tests/unit/application/export/renderers/test_pdf_renderer.py::test_pdf_renders_a_small_report` (missing system libs).
+- Backend tests: `cd backend && uv run pytest <path> -q -p no:warnings`. Integration/API tests need `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock`. Known pre-existing failure: `tests/unit/application/export/renderers/test_pdf_renderer.py::test_pdf_renders_a_small_report` (missing system libs).
 - Frontend: `cd frontend && pnpm exec vitest run <path>`; `pnpm lint` (check exit code), `pnpm exec tsc --noEmit -p .`. Use `biome check --write` only (never `--unsafe`).
 - BAO assay-format term ids (verified in BioPortal): biochemical format `BAO_0000217`, organism-based format `BAO_0000218`, cell based format `BAO_0000219`, protein complex format `BAO_0000223`, protein format `BAO_0000224`, nucleic acid format `BAO_0000225`, tissue-based format `BAO_0000221`, microsome format `BAO_0000251`, single protein format `BAO_0000357`, cell-free format `BAO_0000366`, small-molecule physicochemical format `BAO_0000100`, plasma format `BAO_0020003`. Term id = `http://www.bioassayontology.org/bao#<code>`, `ontology_source` = `"BAO"`.
 
@@ -289,7 +289,7 @@ async def test_lists_common_units_grouped(client):
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api/test_units.py -q -p no:warnings`
+Run: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api/test_units.py -q -p no:warnings`
 Expected: FAIL with 404.
 
 - [ ] **Step 3: Implement the query, DI, dependency and route**
@@ -373,7 +373,7 @@ async def list_units(auth: AuthDep, use_case: ListUnitsDep) -> list[UnitSuggesti
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api/test_units.py -q -p no:warnings`
+Run: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api/test_units.py -q -p no:warnings`
 Expected: PASS.
 
 - [ ] **Step 5: Regenerate orval and commit**
@@ -451,7 +451,7 @@ async def test_rewrites_variants_and_leaves_the_rest(session_factory, workspace_
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/test_canonical_units_migration.py -q -p no:warnings`
+Run: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/test_canonical_units_migration.py -q -p no:warnings`
 Expected: FAIL with `ModuleNotFoundError: cellar.infrastructure.persistence.unit_rewrite`.
 
 - [ ] **Step 3: Implement the helper and the migration**
@@ -542,7 +542,7 @@ def downgrade() -> None:
 
 - [ ] **Step 4: Run the test and the migration**
 
-Run: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/test_canonical_units_migration.py -q -p no:warnings`
+Run: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/test_canonical_units_migration.py -q -p no:warnings`
 Expected: PASS.
 Run: `cd backend && uv run alembic upgrade head` (root `.env` exported, as `make` does)
 Expected: upgrades to `088_canonical_units`; `select distinct unit from readout_definitions` shows no `uM`.
@@ -970,7 +970,7 @@ async def test_form_round_trips_category_and_keeps_template_fields(client):
 
 - [ ] **Step 5: Run all of the above and the FK coverage check**
 
-Run: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/unit/domain/workspace_config/test_protocol_form.py tests/integration/test_protocol_form_defaults.py tests/api/test_protocol_forms_category.py tests/unit/cascade/test_fk_coverage.py -q -p no:warnings`
+Run: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/unit/domain/workspace_config/test_protocol_form.py tests/integration/test_protocol_form_defaults.py tests/api/test_protocol_forms_category.py tests/unit/cascade/test_fk_coverage.py -q -p no:warnings`
 Expected: PASS. If `test_fk_coverage` reports the new FK `protocol_forms.category_id`, add it to `IGNORED_FKS` with the comment `# SET NULL: a deleted category turns its forms generic (Task 4)` and re-run.
 Run: `uv run alembic upgrade head` (root `.env` exported). Expected: head `089_protocol_form_category`.
 
@@ -1171,7 +1171,7 @@ async def test_without_targets_the_forms_format_applies(client):
 
 - [ ] **Step 5: Run the tests**
 
-Run: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/unit/domain/screening_assay/test_assay_format.py tests/api/test_protocol_create_flow.py -q -p no:warnings`
+Run: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/unit/domain/screening_assay/test_assay_format.py tests/api/test_protocol_create_flow.py -q -p no:warnings`
 Expected: PASS (the API test needs the `form_id` request field added in Task 10; until then add `form_id: uuid.UUID | None = None` to `CreateProtocolRequest` here and pass it through in the route — Task 10 then only adds siblings and nicknames).
 
 - [ ] **Step 6: Commit**
@@ -1515,7 +1515,7 @@ async def add_default_protocol_forms(
 
 - [ ] **Step 4: Run the tests**
 
-Run: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/unit/application/workspace_config/test_default_protocol_forms.py tests/api/test_protocol_forms_defaults.py -q -p no:warnings`
+Run: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/unit/application/workspace_config/test_default_protocol_forms.py tests/api/test_protocol_forms_defaults.py -q -p no:warnings`
 Expected: PASS. If a shipped form fails `test_each_form_builds_a_valid_protocol`, fix the form's data (never weaken the domain invariant).
 
 - [ ] **Step 5: Regenerate orval and commit**
@@ -1574,7 +1574,7 @@ async def test_unknown_source_category_is_404(client):
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api/test_protocol_category_start_like.py -q -p no:warnings`
+Run: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api/test_protocol_category_start_like.py -q -p no:warnings`
 Expected: FAIL (422 extra field or no forms copied).
 
 - [ ] **Step 3: Implement**
@@ -1796,7 +1796,7 @@ async def test_locked_sibling_is_refused_and_nothing_is_saved(session_factory, w
 
 - [ ] **Step 2: Run them to verify they fail**
 
-Run: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/test_create_protocol_siblings.py -q -p no:warnings`
+Run: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/test_create_protocol_siblings.py -q -p no:warnings`
 Expected: FAIL with `ImportError: cannot import name 'SiblingDiscriminator'`.
 
 - [ ] **Step 3: Implement**
@@ -1934,7 +1934,7 @@ and pass `sibling_renames=renames` into `NamePreview(...)`.
 
 - [ ] **Step 4: Run the tests plus the naming suites**
 
-Run: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/test_create_protocol_siblings.py tests/integration/test_protocol_name_siblings.py tests/unit/application/screening tests/unit/domain/shared/test_protocol_naming.py -q -p no:warnings`
+Run: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/test_create_protocol_siblings.py tests/integration/test_protocol_name_siblings.py tests/unit/application/screening tests/unit/domain/shared/test_protocol_naming.py -q -p no:warnings`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -1971,7 +1971,7 @@ async def test_nicknames_are_added_at_create(session_factory, workspace_id, user
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/test_create_protocol_siblings.py::test_nicknames_are_added_at_create -q -p no:warnings`
+Run: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/test_create_protocol_siblings.py::test_nicknames_are_added_at_create -q -p no:warnings`
 Expected: FAIL with `TypeError: ... unexpected keyword argument 'nicknames'`.
 
 - [ ] **Step 3: Implement** — add the field; right after `protocol = Protocol.create(...)` and before `await self._repo.save(protocol)`:
@@ -2053,7 +2053,7 @@ async def test_preview_reports_a_sibling_name_clash(client):
 
 - [ ] **Step 2: Run them to verify they fail**
 
-Run: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api/test_protocol_create_flow.py -q -p no:warnings`
+Run: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api/test_protocol_create_flow.py -q -p no:warnings`
 Expected: FAIL (422 extra fields / missing keys).
 
 - [ ] **Step 3: Implement the request/response models and pass-through**
@@ -2076,7 +2076,7 @@ Create route: build `sibling_discriminators=[SiblingDiscriminator(protocol_id=s.
 
 - [ ] **Step 4: Run the API tests and the whole backend unit suite**
 
-Run: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api/test_protocol_create_flow.py -q -p no:warnings && uv run pytest tests/unit -q -p no:warnings --deselect tests/unit/application/export/renderers/test_pdf_renderer.py::test_pdf_renders_a_small_report`
+Run: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api/test_protocol_create_flow.py -q -p no:warnings && uv run pytest tests/unit -q -p no:warnings --deselect tests/unit/application/export/renderers/test_pdf_renderer.py::test_pdf_renders_a_small_report`
 Expected: PASS.
 
 - [ ] **Step 5: Regenerate orval and commit**
@@ -2867,7 +2867,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" -- frontend/src/feature
 Run:
 ```bash
 cd backend && uv run pytest tests/unit -q -p no:warnings --deselect tests/unit/application/export/renderers/test_pdf_renderer.py::test_pdf_renders_a_small_report
-DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration tests/api -q -p no:warnings
+DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration tests/api -q -p no:warnings
 uv run ruff check src tests && uv run ruff format --check src
 cd ../frontend && pnpm exec vitest run && pnpm lint; echo "lint exit $?" && pnpm exec tsc --noEmit -p .
 ```

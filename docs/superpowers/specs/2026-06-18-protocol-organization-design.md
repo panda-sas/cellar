@@ -164,7 +164,7 @@ New method — facets we detected
 
 ## 6. Architecture & code anchors
 
-All paths under `/Users/sidx/workspace/chem-vault2`. Patterns mirror existing files verbatim.
+All paths under `~/workspace/chem-vault2`. Patterns mirror existing files verbatim.
 
 ### 6.1 What already exists (de-risking)
 

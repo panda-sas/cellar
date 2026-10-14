@@ -14,7 +14,7 @@
 
 - Branch: `feat/any-protocol-activity-search` (already exists, builds on commit `8cef97a9`).
 - Commits: `git commit -m "..." -- <explicit paths>` only. End every message with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`. Never add a `Claude-Session:` trailer.
-- Backend tests that touch Postgres need `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock`. Run from `backend/` with `uv run pytest`.
+- Backend tests that touch Postgres need `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock`. Run from `backend/` with `uv run pytest`.
 - Frontend: run from `frontend/`; `pnpm exec vitest run <path>`, `pnpm exec tsc --noEmit -p .`, `pnpm lint` (check exit code, not output).
 - Never hand-roll a TS interface that mirrors a backend DTO. `activity_data` is `dict[str, dict[str, Any]]` in OpenAPI so orval emits nothing for it; the FE's `ActivityValue` is a documented client-side narrowing. Follow that pattern for the new `any` payload.
 - Normalize to µM only for filtering and sorting. Display native units.
@@ -514,7 +514,7 @@ If the `readout_data` INSERT fails on a NOT NULL column, run `docker exec -i che
 
 - [ ] **Step 4: Run**
 
-Run: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api/test_search.py -q`
+Run: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api/test_search.py -q`
 Expected: all pass (the two new tests included). If the readout seeder's INSERT fails, fix the column list per Step 2's note.
 
 - [ ] **Step 5: Lint + commit**
@@ -1490,7 +1490,7 @@ and in the enrichment call site:
 
 - [ ] **Step 8: Run everything**
 
-Run: `cd backend && uv run pytest tests/unit/application/screening/test_molecule_activity_service.py tests/unit/application/research_organization -q && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api/test_search.py -q && uv run ruff check src tests/api/test_search.py tests/unit/application/screening/test_molecule_activity_service.py && uv run ruff format --check src`
+Run: `cd backend && uv run pytest tests/unit/application/screening/test_molecule_activity_service.py tests/unit/application/research_organization -q && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api/test_search.py -q && uv run ruff check src tests/api/test_search.py tests/unit/application/screening/test_molecule_activity_service.py && uv run ruff format --check src`
 Expected: PASS, clean.
 
 - [ ] **Step 9: Commit**

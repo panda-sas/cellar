@@ -668,7 +668,7 @@ Record the exact POST fn name (expected ≈ `saveDecompositionCollectionApiV1Sar
 
 ```bash
 cd frontend && pnpm exec tsc --noEmit
-git -C /Users/sidx/workspace/chem-vault2 commit -m "chore(api): regenerate orval for save-collection route
+git -C ~/workspace/chem-vault2 commit -m "chore(api): regenerate orval for save-collection route
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>" -- frontend/src/shared/lib/api
 ```
@@ -750,7 +750,7 @@ cd frontend && pnpm exec biome check --write src/features/sar-analysis/hooks/use
  && pnpm exec biome check src/features/sar-analysis/hooks/use-decomposition-rows.ts src/features/sar-analysis/hooks/use-decomposition-rows.test.ts \
  && pnpm exec vitest run src/features/sar-analysis/hooks/use-decomposition-rows.test.ts \
  && pnpm exec tsc --noEmit
-git -C /Users/sidx/workspace/chem-vault2 commit -m "feat(sar): useDecompositionRows exposes live filterParam + total
+git -C ~/workspace/chem-vault2 commit -m "feat(sar): useDecompositionRows exposes live filterParam + total
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>" -- frontend/src/features/sar-analysis/hooks/use-decomposition-rows.ts frontend/src/features/sar-analysis/hooks/use-decomposition-rows.test.ts
 ```
@@ -875,7 +875,7 @@ cd frontend && pnpm exec biome check --write src/features/sar-analysis/hooks/use
  && pnpm exec biome check src/features/sar-analysis/hooks/use-save-decomposition-collection.ts src/features/sar-analysis/hooks/use-save-decomposition-collection.test.ts \
  && pnpm exec vitest run src/features/sar-analysis/hooks/use-save-decomposition-collection.test.ts \
  && pnpm exec tsc --noEmit
-git -C /Users/sidx/workspace/chem-vault2 commit -m "feat(sar): useSaveDecompositionCollection hook
+git -C ~/workspace/chem-vault2 commit -m "feat(sar): useSaveDecompositionCollection hook
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>" -- frontend/src/features/sar-analysis/hooks/use-save-decomposition-collection.ts frontend/src/features/sar-analysis/hooks/use-save-decomposition-collection.test.ts
 ```
@@ -976,7 +976,7 @@ cd frontend && pnpm exec biome check --write src/features/sar-analysis/component
  && pnpm exec biome check src/features/sar-analysis/components/save-selection-dialog.tsx src/features/sar-analysis/components/save-selection-dialog.test.tsx src/features/sar-analysis/components/sar-view.tsx \
  && pnpm exec vitest run src/features/sar-analysis/components/save-selection-dialog.test.tsx src/features/sar-analysis/components/sar-view.test.tsx \
  && pnpm exec tsc --noEmit
-git -C /Users/sidx/workspace/chem-vault2 commit -m "refactor(sar): SaveSelectionDialog → name/project collector (count + optional preview)
+git -C ~/workspace/chem-vault2 commit -m "refactor(sar): SaveSelectionDialog → name/project collector (count + optional preview)
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>" -- frontend/src/features/sar-analysis/components/save-selection-dialog.tsx frontend/src/features/sar-analysis/components/save-selection-dialog.test.tsx frontend/src/features/sar-analysis/components/sar-view.tsx
 ```
@@ -1081,7 +1081,7 @@ cd frontend && pnpm exec biome check --write src/features/sar-analysis/component
  && pnpm exec biome check src/features/sar-analysis/components/rgroup-table.tsx src/features/sar-analysis/components/rgroup-table.test.tsx \
  && pnpm exec vitest run src/features/sar-analysis/components/rgroup-table.test.tsx \
  && pnpm exec tsc --noEmit
-git -C /Users/sidx/workspace/chem-vault2 commit -m "feat(sar): RGroupTable save-all/filtered toolbar action (opt-in)
+git -C ~/workspace/chem-vault2 commit -m "feat(sar): RGroupTable save-all/filtered toolbar action (opt-in)
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>" -- frontend/src/features/sar-analysis/components/rgroup-table.tsx frontend/src/features/sar-analysis/components/rgroup-table.test.tsx
 ```
@@ -1250,7 +1250,7 @@ cd frontend && pnpm exec biome check --write src/features/sar-analysis/component
  && pnpm exec biome check src/features/sar-analysis/components/sar-view.tsx src/features/sar-analysis/components/sar-view.test.tsx \
  && pnpm exec vitest run src/features/sar-analysis/components/sar-view.test.tsx \
  && pnpm exec tsc --noEmit
-git -C /Users/sidx/workspace/chem-vault2 commit -m "feat(sar): SarView wires save-all-matched via server endpoint
+git -C ~/workspace/chem-vault2 commit -m "feat(sar): SarView wires save-all-matched via server endpoint
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>" -- frontend/src/features/sar-analysis/components/sar-view.tsx frontend/src/features/sar-analysis/components/sar-view.test.tsx
 ```
@@ -1282,8 +1282,8 @@ Expected: all PASS; tsc clean; biome exit 0.
 
 - [ ] **Step 4: Update the handoff** — tick item 1 in `docs/superpowers/specs/2026-06-15-sar-unit-c-handoff.md` (mark done with the commit range). Commit:
 ```bash
-git -C /Users/sidx/workspace/chem-vault2 add -f docs/superpowers/specs/2026-06-15-sar-unit-c-handoff.md
-git -C /Users/sidx/workspace/chem-vault2 commit -m "docs(sar): mark Unit C item 1 (save-all-matched) done
+git -C ~/workspace/chem-vault2 add -f docs/superpowers/specs/2026-06-15-sar-unit-c-handoff.md
+git -C ~/workspace/chem-vault2 commit -m "docs(sar): mark Unit C item 1 (save-all-matched) done
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>" -- docs/superpowers/specs/2026-06-15-sar-unit-c-handoff.md
 ```

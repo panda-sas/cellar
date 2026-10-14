@@ -133,12 +133,12 @@ async def test_duplicate_uuid_yields_two_resolved_outputs():
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `cd /Users/sidx/workspace/chem-vault2/backend && uv run pytest tests/unit/application/shared/test_molecule_resolver.py -q`
+Run: `cd ~/workspace/chem-vault2/backend && uv run pytest tests/unit/application/shared/test_molecule_resolver.py -q`
 Expected: FAIL — the current `resolve` calls `find_by_id_in_workspace` per ref (so `find_by_ids_calls == 0`, `find_by_id_calls == 3`), failing the batching assertions.
 
 - [ ] **Step 3: Confirm `_resolve_uuid` / `_resolve_one`'s UUID branch have no other callers**
 
-Run: `cd /Users/sidx/workspace/chem-vault2/backend && grep -rn "_resolve_uuid\|_resolve_one" src/cellar/`
+Run: `cd ~/workspace/chem-vault2/backend && grep -rn "_resolve_uuid\|_resolve_one" src/cellar/`
 Expected: both are referenced only inside `molecule_resolver.py` (private). This confirms removing the UUID dispatch branch + `_resolve_uuid` is safe.
 
 - [ ] **Step 4: Rework `resolve` + drop the now-dead UUID per-ref path**
@@ -228,28 +228,28 @@ Then delete the now-dead `_resolve_uuid` method entirely, and remove its dispatc
 
 - [ ] **Step 5: Run to verify pass**
 
-Run: `cd /Users/sidx/workspace/chem-vault2/backend && uv run pytest tests/unit/application/shared/test_molecule_resolver.py -q`
+Run: `cd ~/workspace/chem-vault2/backend && uv run pytest tests/unit/application/shared/test_molecule_resolver.py -q`
 Expected: PASS (4 tests).
 
 - [ ] **Step 6: Regression — run every resolver-caller suite**
 
 Run:
 ```bash
-cd /Users/sidx/workspace/chem-vault2/backend && uv run pytest \
+cd ~/workspace/chem-vault2/backend && uv run pytest \
   tests/unit/application/research_organization/test_bulk_add_to_collection.py \
   tests/api/test_sar_analysis_routes.py \
   -q
 ```
 Also sweep any other collection-membership / resolver tests:
 ```bash
-cd /Users/sidx/workspace/chem-vault2/backend && uv run pytest "$(grep -rln 'AddMoleculesToCollection\|BulkAddToCollection\|MoleculeResolver' tests/ | tr '\n' ' ')" -q
+cd ~/workspace/chem-vault2/backend && uv run pytest "$(grep -rln 'AddMoleculesToCollection\|BulkAddToCollection\|MoleculeResolver' tests/ | tr '\n' ' ')" -q
 ```
 Expected: all PASS (the uuid-ref path through `AddMoleculesToCollection` is exercised end-to-end by the SAR save-collection API tests; behavior is unchanged).
 
 - [ ] **Step 7: Gate + commit**
 
 ```bash
-cd /Users/sidx/workspace/chem-vault2/backend && uv run pytest tests/unit/application/shared/test_molecule_resolver.py tests/unit/application/research_organization/test_bulk_add_to_collection.py tests/api/test_sar_analysis_routes.py -q \
+cd ~/workspace/chem-vault2/backend && uv run pytest tests/unit/application/shared/test_molecule_resolver.py tests/unit/application/research_organization/test_bulk_add_to_collection.py tests/api/test_sar_analysis_routes.py -q \
  && uv run lint-imports \
  && uv run ruff check src/cellar/application/shared/molecule_resolver.py \
  && uv run ruff format --check src/cellar/application/shared/molecule_resolver.py
@@ -397,7 +397,7 @@ async def test_rows_query_uses_pk_indexes(uow, capsys):
 
 - [ ] **Step 2: Run the probe (capture the plan)**
 
-Run: `cd /Users/sidx/workspace/chem-vault2/backend && uv run pytest tests/integration/persistence/sar_analysis/test_decomposition_rows_explain.py -q -s`
+Run: `cd ~/workspace/chem-vault2/backend && uv run pytest tests/integration/persistence/sar_analysis/test_decomposition_rows_explain.py -q -s`
 Expected: PASS, and the printed `EXPLAIN` shows Index Scans on `rgroup_assignments_pkey` / `sar_activity_values_pkey` / `molecules_pkey` (exact names may vary) and no Seq Scan on the two SAR tables. **Copy the printed plan.**
 
 - [ ] **Step 3: Record the evidence + decision**
@@ -438,11 +438,11 @@ If the probe instead showed a Seq Scan that an index would fix (a usable index w
 - [ ] **Step 5: Gate + commit**
 
 ```bash
-cd /Users/sidx/workspace/chem-vault2/backend && uv run pytest tests/integration/persistence/sar_analysis/test_decomposition_rows_explain.py -q
+cd ~/workspace/chem-vault2/backend && uv run pytest tests/integration/persistence/sar_analysis/test_decomposition_rows_explain.py -q
 ```
 Then (from repo root) commit the probe + evidence (evidence doc is under gitignored `docs/`, force-add):
 ```bash
-cd /Users/sidx/workspace/chem-vault2
+cd ~/workspace/chem-vault2
 git add -f docs/backlog/sar-rows-explain-evidence.md
 git commit -m "test(sar): EXPLAIN probe + evidence — /rows rides composite PKs (no new index)
 

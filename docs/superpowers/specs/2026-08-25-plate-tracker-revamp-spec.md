@@ -202,7 +202,7 @@ Emails/notifications · volume-reduction editor (never persisted in legacy) · v
 - Audit actor precedence: `event.user_id` (non-nil) → request `current_actor()` (ContextVar set in `get_auth`) → nil/SYSTEM. Kiosk and worker paths stay SYSTEM by design. The API test app does not subscribe the audit catch-all; `TestAuditActor` wires it with class-scoped fixtures, and a ContextVar-setting dependency override must be `async def` (sync deps run on a threadpool Context copy).
 - FE: org selectors on Plates / Plate Groups (+Insights) and the Org Policies button render only for `me.is_admin` (gated in both the error-state and normal renders of the plate list); audit filter gained `RegisteredPlate` / `PlateGroup` / `PlateLoan`.
 - Test-harness deviations: `test_children_exclude_foreign_org_child` restructured stricter (children listing gates on parent visibility); hidden-plate tests use `editor_client_own_org`; the stub org directory now lists `abbvie`/`tamu`/`partner`.
-- Environment: `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock` is required for testcontainers on this Mac; lint gates are scoped to touched files because repo-wide `pnpm lint`/ruff are red on `main` (backlog).
+- Environment: `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock` is required for testcontainers on this Mac; lint gates are scoped to touched files because repo-wide `pnpm lint`/ruff are red on `main` (backlog).
 - Full backend suite at the end of S7: 3873 passed / 11 failed, all pre-existing (`docs/backlog/preexisting-test-lint-failures-main.md`, now also listing `test_molecules.py`).
 
 ## S8 sync note (2026-08-25) — shipped reality vs. §5/§6

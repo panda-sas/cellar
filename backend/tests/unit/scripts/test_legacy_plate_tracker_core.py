@@ -49,13 +49,13 @@ def _acct(uin: int, netid: str, email: str | None, alt: str | None = None) -> Le
 
 def test_build_account_email_map_uses_email_and_skips_placeholders():
     accounts = [
-        _acct(124007171, "sid", "sid@tamu.edu"),
+        _acct(124007171, "sid", "sid@example.org"),
         _acct(999, "AUTO_RAN999", "AUTO_RAN999"),   # placeholder → skip
         _acct(1000, "bob", None, alt="bob@x.org"),   # null email → fall back to alt_email
         _acct(1001, "nul", None),                    # no email at all → absent
     ]
     m = build_account_email_map(accounts)
-    assert m == {124007171: "sid@tamu.edu", 1000: "bob@x.org"}
+    assert m == {124007171: "sid@example.org", 1000: "bob@x.org"}
 
 
 @pytest.mark.parametrize("role,expected", [
@@ -298,7 +298,7 @@ def _closed_legacy() -> LegacyData:
         plates=[LegacyPlate(1, None, "000001", "P1", "Active", "MASTER", 10),
                 LegacyPlate(2, None, "000002", "P2", "Active", "MASTER", 10)],
         transactions=[LegacyTransaction(5001, "CLOSED", 7, t0)],
-        accounts=[_acct(7, "jdoe", "j@tamu.edu")],
+        accounts=[_acct(7, "jdoe", "j@example.org")],
         activities=[
             LegacyActivity(1, "T_REQ_CMT", 5001, None, None,
                            SYS + "Plate P1 has been approved. Please scan them out from vault",
@@ -330,7 +330,7 @@ def test_plan_closed_loans_reconstructs_items_and_timestamps() -> None:
     legacy = _closed_legacy()
     p1, p2, actor, user = uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
     specs, unparsed = plan_closed_loans(
-        legacy, {"P1": p1, "P2": p2}, {7: "j@tamu.edu"}, {"j@tamu.edu": user}, actor,
+        legacy, {"P1": p1, "P2": p2}, {7: "j@example.org"}, {"j@example.org": user}, actor,
         {7: "Jane Doe"},
     )
     assert [u.act_id for u in unparsed] == [9]
@@ -351,7 +351,7 @@ def test_plan_closed_loans_unmapped_requester_falls_back_to_actor() -> None:
     legacy = _closed_legacy()
     actor = uuid.uuid4()
     specs, _ = plan_closed_loans(
-        legacy, {"P1": uuid.uuid4(), "P2": uuid.uuid4()}, {7: "j@tamu.edu"}, {}, actor,
+        legacy, {"P1": uuid.uuid4(), "P2": uuid.uuid4()}, {7: "j@example.org"}, {}, actor,
         {7: "Jane Doe"},
     )
     assert specs[0].requester_user_id == actor and specs[0].requester_name == "Jane Doe"
@@ -382,7 +382,7 @@ def test_plan_closed_loans_resolves_renamed_plate_via_historical_map() -> None:
     legacy = LegacyData(
         plates=[LegacyPlate(1, None, "000001", "P1-new", "Active", "MASTER", 10)],
         transactions=[LegacyTransaction(5001, "CLOSED", 7, datetime(2026, 5, 1, 9, 0))],
-        accounts=[_acct(7, "jdoe", "j@tamu.edu")],
+        accounts=[_acct(7, "jdoe", "j@example.org")],
         activities=[
             LegacyActivity(
                 1, "T_REQ_CMT", 5001, 1, None,
@@ -411,7 +411,7 @@ def test_plan_closed_loans_resolves_renamed_plate_via_historical_map() -> None:
     # never resolve "P1-old" — merge historical in, current still wins.
     plate_id_by_name = {**historical_plate_names(legacy, matched), "P1-new": p1}
     specs, unparsed = plan_closed_loans(
-        legacy, plate_id_by_name, {7: "j@tamu.edu"}, {"j@tamu.edu": uuid.uuid4()},
+        legacy, plate_id_by_name, {7: "j@example.org"}, {"j@example.org": uuid.uuid4()},
         uuid.uuid4(), {7: "Jane Doe"},
     )
     assert unparsed == []
@@ -426,7 +426,7 @@ def test_plan_comments_targets_and_prefix_stripping() -> None:
     loan, group, p1, user = uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
     specs = plan_comments(
         legacy, txn_loan_ids={5001: loan}, set_group_ids={1: group}, plate_ids={1: p1},
-        account_email={7: "j@tamu.edu"}, user_map={"j@tamu.edu": user},
+        account_email={7: "j@example.org"}, user_map={"j@example.org": user},
         account_names={7: "Jane Doe"},
     )
     assert len(specs) == 3  # the 6 system lines are not comments

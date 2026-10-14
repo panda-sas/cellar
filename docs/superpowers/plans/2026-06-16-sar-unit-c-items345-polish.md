@@ -187,7 +187,7 @@ Expected: `tsc` clean; final `biome check` exit 0.
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /Users/sidx/workspace/chem-vault2
+cd ~/workspace/chem-vault2
 git commit -m "refactor(sar): extract activityValueToCurveSnapshot mapper
 
 Single ActivityValue->CurveSnapshot mapper in research-organization/lib
@@ -348,7 +348,7 @@ Expected: `tsc` clean (catches the unused `ActivityValue`/`CurveSnapshot` import
 - [ ] **Step 10: Commit**
 
 ```bash
-cd /Users/sidx/workspace/chem-vault2
+cd ~/workspace/chem-vault2
 git commit -m "refactor(sar): extract pickReference/potencyShade, kill table->heatmap import
 
 Move the potency ramp to sar-analysis/lib/sar-activity-display; the heatmap
@@ -593,7 +593,7 @@ Expected: `tsc` clean; final `biome check` exit 0.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/sidx/workspace/chem-vault2
+cd ~/workspace/chem-vault2
 git commit -m "feat(sar): useDecompositionRun cancel/isCancelled/runAgain
 
 cancel() POSTs the cancel route + flips isCancelled optimistically;
@@ -831,7 +831,7 @@ Expected: `tsc` clean; final `biome check` exit 0.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/sidx/workspace/chem-vault2
+cd ~/workspace/chem-vault2
 git commit -m "feat(sar): useActivityProjection cancel/isCancelled/runAgain
 
 Symmetric to useDecompositionRun: cancel() POSTs the projection cancel
@@ -1107,7 +1107,7 @@ Expected: `tsc` clean; final `biome check` exit 0. (a11y: the new `<button>`s ca
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /Users/sidx/workspace/chem-vault2
+cd ~/workspace/chem-vault2
 git commit -m "feat(sar): honest cancel/empty/projection-failed states in SarView
 
 Inline Cancel on both progress lines; neutral cancelled + Run again;
@@ -1128,7 +1128,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>" -- \
 
 - [ ] **Step 1: Read the file to find the insertion point**
 
-Run: `cd /Users/sidx/workspace/chem-vault2 && sed -n '1,60p' docs/domain-model/04-sar-analysis.md` and skim the section headings (`grep -n '^#' docs/domain-model/04-sar-analysis.md`). Insert the new section after the fingerprint/Markush aggregate sections (before any "open questions"/"deviations"/footer), so it reads as an addition to the aggregate catalog.
+Run: `cd ~/workspace/chem-vault2 && sed -n '1,60p' docs/domain-model/04-sar-analysis.md` and skim the section headings (`grep -n '^#' docs/domain-model/04-sar-analysis.md`). Insert the new section after the fingerprint/Markush aggregate sections (before any "open questions"/"deviations"/footer), so it reads as an addition to the aggregate catalog.
 
 - [ ] **Step 2: Add the section**
 
@@ -1176,12 +1176,12 @@ recomputed at any time without data loss.
 
 - [ ] **Step 3: Verify tracking, then commit** (`docs/` is gitignored)
 
-Run: `cd /Users/sidx/workspace/chem-vault2 && git ls-files docs/domain-model/04-sar-analysis.md`
+Run: `cd ~/workspace/chem-vault2 && git ls-files docs/domain-model/04-sar-analysis.md`
 - If it prints the path → tracked; commit normally.
 - If it prints nothing → `git add -f docs/domain-model/04-sar-analysis.md` first.
 
 ```bash
-cd /Users/sidx/workspace/chem-vault2
+cd ~/workspace/chem-vault2
 git add -f docs/domain-model/04-sar-analysis.md
 git commit -m "docs(sar): document RGroupDecompositionRun + SarActivityProjection aggregates
 

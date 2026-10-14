@@ -11,7 +11,7 @@
 ## Global constraints
 
 - Read `docs/backend-code-guidelines.md` and `docs/patterns-and-conventions.md` before backend code.
-- Backend tests: `cd backend && uv run pytest tests/unit/... -q`; `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/... tests/api/... -q`. Lint: `cd backend && uv run ruff check src && uv run ruff format src`.
+- Backend tests: `cd backend && uv run pytest tests/unit/... -q`; `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/... tests/api/... -q`. Lint: `cd backend && uv run ruff check src && uv run ruff format src`.
 - Frontend checks: `cd frontend && pnpm vitest run src/features/screen-campaign && pnpm exec biome check src/features && pnpm exec tsc --noEmit -p .`.
 - Migration `078_campaign_channel_resolve_from_all_runs` revises `077_campaign_stage_kind`; apply to the dev DB (`cd backend && uv run alembic upgrade head`).
 - Orval regen after the backend task (`cd frontend && pnpm generate:api`, revert version-stamp churn). No hand-written TS types mirroring DTOs.

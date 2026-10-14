@@ -507,7 +507,7 @@ use case; updated `test_close_campaign.py` (no collection, note stored), `test_a
 `test_mirror_protocol_channels.py` gain `stage_name` cases (created, skipped when nothing
 maps, name collision).
 
-Backend integration (needs `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock`):
+Backend integration (needs `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock`):
 - `test_campaign_repository.py`: stages and overrides round-trip; reconcile on update
   (rename, criteria replace, override clear).
 - `test_close_campaign.py`: close → stage write blocked by trigger (`check_violation`) →

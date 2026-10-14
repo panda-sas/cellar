@@ -11,7 +11,7 @@
 ## Global constraints
 
 - Read `docs/backend-code-guidelines.md` and `docs/patterns-and-conventions.md` before backend code.
-- Backend tests: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest …` for `tests/api` and `tests/integration` (testcontainers); unit tests need no Docker.
+- Backend tests: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest …` for `tests/api` and `tests/integration` (testcontainers); unit tests need no Docker.
 - Frontend checks: `cd frontend && pnpm vitest run src/features/screen-campaign && pnpm exec biome check src/features/screen-campaign && pnpm exec tsc --noEmit -p .`
 - Commit with explicit pathspecs. No `Claude-Session` trailer; keep `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 - Never hand-write a TS interface mirroring a backend DTO; regen orval (`pnpm generate:api`, backend on :8000) and revert version-stamp-only churn.

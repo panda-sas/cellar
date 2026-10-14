@@ -12,8 +12,8 @@
 
 - **Read `docs/backend-code-guidelines.md` + `docs/patterns-and-conventions.md` before writing any backend code** (CLAUDE.md mandate; workspace scoping, auth guards, railway checklist).
 - **Commits: ALWAYS explicit pathspecs** (`git commit -m "…" -- <paths>`). The working tree has the user's uncommitted `frontend/package.json` + `frontend/pnpm-lock.yaml` sentinel-auth bump (`^0.17.0 → ^0.19.0`) and untracked `.claude/skills/` — these must NEVER be swept into a commit.
-- **pnpm:** bare `pnpm` is broken on this machine (Homebrew pnpm 9 + Node 25). Always use `/Users/sidx/Library/pnpm/pnpm`.
-- **FE tests:** `cd frontend && /Users/sidx/Library/pnpm/pnpm test` (no Makefile target). Baseline 1000 green. **Biome:** `pnpm lint` gates at error severity for format — verify by EXIT CODE, never piped output.
+- **pnpm:** bare `pnpm` is broken on this machine (Homebrew pnpm 9 + Node 25). Always use `~/Library/pnpm/pnpm`.
+- **FE tests:** `cd frontend && ~/Library/pnpm/pnpm test` (no Makefile target). Baseline 1000 green. **Biome:** `pnpm lint` gates at error severity for format — verify by EXIT CODE, never piped output.
 - **Backend tests:** `cd backend && uv run pytest tests/unit/ -q` (unit), `uv run pytest tests/api/ -q` + `tests/integration/` (need `make up` DB). Baseline: 10 documented pre-existing failures (`docs/backlog/pre-existing-test-failures.md`), 3770 passed at S4 close.
 - **Ruff line length 99** (backend). Guards live in `application/auth.py`; **user-attributed guards need `require_authenticated(auth)` FIRST** (`require_workspace_role(None)` bypasses — worker convention; S4 lesson).
 - **orval regen batching (recorded deviation from per-change regen):** one regen per contiguous backend batch, always BEFORE the first FE task consuming it — Task 4 regens (covers Task 1's `status` enum + Task 4's MeResponse), Task 10 regens (covers kiosk-devices + kiosk + Task 9's insights). Regen is all-or-nothing for `model/`; review the diff; orval never prunes `model/index.ts`.
@@ -269,7 +269,7 @@ Mirror the kwarg on the Protocol; sweep fakes (`grep -rn "count_plates_by_group"
 
 - [ ] **Step 1: Backend — extend MeResponse** (`user.py`): add fields `workspace_role: str` and `is_admin: bool` to the model; in the route pass `workspace_role=auth.workspace_role, is_admin=auth.is_admin`. Extend the existing `/me` API test: admin fixture → `is_admin is True, workspace_role == "admin"`; `editor_client` → `is_admin is False`. Run the file; PASS.
 
-- [ ] **Step 2: Orval regen.** Boot the auth-stubbed backend on :8000 (Appendix A), then `cd frontend && /Users/sidx/Library/pnpm/pnpm generate:api`. Review the diff: `meResponse.ts` gains both fields; `listLoansApiV1PlateLoansGetParams.ts` status becomes the enum union. Regen is all-or-nothing — confirm no unrelated deletions; orval never prunes `model/index.ts`.
+- [ ] **Step 2: Orval regen.** Boot the auth-stubbed backend on :8000 (Appendix A), then `cd frontend && ~/Library/pnpm/pnpm generate:api`. Review the diff: `meResponse.ts` gains both fields; `listLoansApiV1PlateLoansGetParams.ts` status becomes the enum union. Regen is all-or-nothing — confirm no unrelated deletions; orval never prunes `model/index.ts`.
 
 - [ ] **Step 3: Type LoanFilters.status.** In `use-plate-loans.ts` change `status?: string;` → `status?: LoanStatus;` (enum already imported in the module per S4). Fix any literal call sites (loan-dashboard passes `"open"` → `LoanStatus.open`).
 
@@ -336,7 +336,7 @@ Update the locked-UX comment (backlog item now closed) — All tab stays read-on
 
 Replace both `{orgId ? …}` tab guards with `{showApprovals ? …}`. Imports: `useEffect`, `showError`, `LoanStatus`.
 
-- [ ] **Step 7: Run FE suite** — `/Users/sidx/Library/pnpm/pnpm test` (full) + `pnpm lint` (check exit code). Expected: baseline + 3 green.
+- [ ] **Step 7: Run FE suite** — `~/Library/pnpm/pnpm test` (full) + `pnpm lint` (check exit code). Expected: baseline + 3 green.
 - [ ] **Step 8: Commit + close backlog**
 
 ```bash
@@ -1645,7 +1645,7 @@ function TokenRevealDialog({ issued, onClose }: { issued: CreatedKioskDevice | n
 Revoke: bespoke confirm `Dialog` (mirror api-key-admin's `DeleteDialog` shape) with destructive button labeled "Revoke"; hidden (not disabled) for already-revoked rows. Page wrapper `admin/kiosk-devices/page.tsx` (5-line convention). Nav: add `{ title: "Kiosk Devices", href: "/admin/kiosk-devices", icon: ScanLine }` to the Organization group's `children` (import `ScanLine` from `lucide-react`).
 
 - [ ] **Step 4: Tests** (`kiosk-device-admin.test.tsx`, conventions from §10 of the FE patterns — mock `customInstance` URL-branched, local QueryClient wrapper, mock toast): (1) renders device rows with org name + "Never" last-seen; (2) create flow — fill name, pick org, submit → token dialog visible with the mocked token, closing it empties the reveal (token not re-shown); (3) revoke confirm fires `POST …:revoke`. Mock `navigator.clipboard` if the copy path is exercised.
-- [ ] **Step 5: Run** — `/Users/sidx/Library/pnpm/pnpm test kiosk-device-admin` then full `pnpm test` + `pnpm lint` (exit codes). Expected: green.
+- [ ] **Step 5: Run** — `~/Library/pnpm/pnpm test kiosk-device-admin` then full `pnpm test` + `pnpm lint` (exit codes). Expected: green.
 - [ ] **Step 6: Commit** — `git commit -m "feat(frontend): kiosk device admin page with show-once token reveal" -- frontend/src`
 
 ---
@@ -1775,7 +1775,7 @@ export function legendEntries(
 
 **Files:** scratchpad only (`serve_verify.py`, Playwright walk script, screenshots). No repo changes except fixes for real defects found (each fixed at root + committed with pathspec).
 
-Rig recipe: Appendix A (auth-stubbed real backend on :8000 vs real DB with the S3/S4 legacy seed — workspace `442df0cf-e618-4938-a089-80ae2f1e43e7` has SAC1+SAC2 (public org) + Sanofi (tamu) + 12 real plates; FE via `/Users/sidx/Library/pnpm/pnpm dev`; Playwright login per the repo `verify` skill).
+Rig recipe: Appendix A (auth-stubbed real backend on :8000 vs real DB with the S3/S4 legacy seed — workspace `442df0cf-e618-4938-a089-80ae2f1e43e7` has SAC1+SAC2 (public org) + Sanofi (tamu) + 12 real plates; FE via `~/Library/pnpm/pnpm dev`; Playwright login per the repo `verify` skill).
 
 - [ ] **Checklist** (screenshot each numbered item):
   1. Migration `uv run alembic upgrade head` against the dev DB succeeds (kiosk_devices exists).
@@ -1844,4 +1844,4 @@ if __name__ == "__main__":
     uvicorn.run(app, port=8000)
 ```
 
-For orval regen only, any FakeAuth identity works (orval reads `/openapi.json`). For Task 13, swap `role`/`org_id` per check (e.g. an editor stub with `granted_actions=set()` to see denial paths). FE dev server: `cd frontend && /Users/sidx/Library/pnpm/pnpm dev`. Real-Sentinel checks (13.10) use the `make` dev stack instead, with tokens minted per the dev-api-access memory recipe.
+For orval regen only, any FakeAuth identity works (orval reads `/openapi.json`). For Task 13, swap `role`/`org_id` per check (e.g. an editor stub with `granted_actions=set()` to see denial paths). FE dev server: `cd frontend && ~/Library/pnpm/pnpm dev`. Real-Sentinel checks (13.10) use the `make` dev stack instead, with tokens minted per the dev-api-access memory recipe.

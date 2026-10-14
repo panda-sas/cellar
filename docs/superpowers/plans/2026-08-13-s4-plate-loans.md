@@ -19,7 +19,7 @@
 - **One active item per plate:** application-level pre-check (409 listing the conflicting barcodes) + DB partial unique index `WHERE status IN ('requested','approved','checked_out','return_pending')` as the race backstop.
 - **Custody is derived** — never write `PlateStatus` from loan code.
 - **No UUIDs in UI** (barcodes/labels/org names); explicit gestures (no autosave); count badges next to actions, not inside them; CSV import has a Download Template button (client-side `saveText`).
-- **Test commands:** backend `uv run pytest tests/unit -x -q` / `uv run pytest tests/api/test_plate_loans.py -q` (needs `make up`); FE `/Users/sidx/Library/pnpm/pnpm exec vitest run <paths>` / `exec tsc --noEmit` / `exec biome check <paths>` (bare `pnpm` and `make dev-fe` are broken on this machine — always use the full pnpm path). Backend baseline = 10 documented failures; FE baseline = 983 green.
+- **Test commands:** backend `uv run pytest tests/unit -x -q` / `uv run pytest tests/api/test_plate_loans.py -q` (needs `make up`); FE `~/Library/pnpm/pnpm exec vitest run <paths>` / `exec tsc --noEmit` / `exec biome check <paths>` (bare `pnpm` and `make dev-fe` are broken on this machine — always use the full pnpm path). Backend baseline = 10 documented failures; FE baseline = 983 green.
 - **Commits:** always `git commit -m "..." -- <explicit paths>`; never `frontend/package.json`/`pnpm-lock.yaml`/`next-env.d.ts` (user's unrelated Sentinel-bump edits still in the working tree).
 - **Orval:** regenerate in the same change as any route/DTO change; alias generated types, never hand-roll mirrors.
 
@@ -1061,7 +1061,7 @@ git commit -m "feat(api): /api/v1/plate-loans — request, item verbs, filters +
 
 **Interfaces:**
 - Produces (Tasks 10-11 import): aliases `PlateLoan = LoanResponse`, `PlateLoanItem = LoanItemResponse`, value re-exports `LoanStatus`, `LoanItemStatus` (generated const-object unions); `LOANS_KEY`; `useLoans(filters?: {status?, mine?, owner_org_id?, borrower_org_id?, plate_id?, overdue?}, opts?: {enabled?})` (query key `[...LOANS_KEY, filters ?? {}]`); `useLoan(loanId, opts?)`; `useRequestLoan()` (vars = `RequestLoanBody`); `useLoanItemsAction()` — ONE mutation hook `mutate({loanId, verb, itemIds})` where `verb: "approve"|"deny"|"confirm-out"|"request-return"|"confirm-in"|"cancel"` posts `/plate-loans/${loanId}/items:${verb}` body `{item_ids: itemIds ?? null}`; success invalidates `LOANS_KEY` + `PLATES_KEY` and toasts per-verb (`"Items approved"` etc. via a verb→message map).
-- Regen recipe: same as S3 Task 7 (make dev-be, wait for openapi.json, `/Users/sidx/Library/pnpm/pnpm generate:api`, `make stop`).
+- Regen recipe: same as S3 Task 7 (make dev-be, wait for openapi.json, `~/Library/pnpm/pnpm generate:api`, `make stop`).
 
 - [ ] **Step 1:** Regen; confirm `loanResponse.ts`/`loanItemResponse.ts`/`loanStatus.ts`/`loanItemStatus.ts`/`requestLoanBody.ts` exist.
 - [ ] **Step 2:** Failing hook tests (mirror `use-plate-groups.test.tsx` incl. `beforeEach(vi.clearAllMocks)`): useLoans passes filters as params (booleans included only when set — assert `params` shape); useRequestLoan POSTs the body; useLoanItemsAction hits `/items:approve` with `{item_ids: null}` when itemIds omitted and invalidates both keys (assert via `qc.invalidateQueries` spy or a mounted useLoans refetch).

@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - **Read `docs/backend-code-guidelines.md` and `docs/patterns-and-conventions.md` before touching backend code.** Guards first (`require_authenticated` → role → `require_same_workspace`), Railway `Result`, UoW with dispatch after commit, workspace-scoped repo calls only, no `try/except AuthorizationError`.
-- Backend commands run from `backend/`: `uv run pytest <path> -q`; integration/API tests need `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock` (testcontainers). Lint: `uv run ruff check <files>` and `uv run ruff format <files>`. Types: `uv run mypy <files>` if the repo runs mypy on that package (check `pyproject.toml`); otherwise skip.
+- Backend commands run from `backend/`: `uv run pytest <path> -q`; integration/API tests need `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock` (testcontainers). Lint: `uv run ruff check <files>` and `uv run ruff format <files>`. Types: `uv run mypy <files>` if the repo runs mypy on that package (check `pyproject.toml`); otherwise skip.
 - Frontend commands from `frontend/`: `pnpm vitest run <path>`, `pnpm exec biome check <files>`, `pnpm exec tsc --noEmit`. Generated types only from `@/shared/lib/api/model` — never hand-roll a DTO; the orchestrator runs `pnpm generate:api` between the backend and frontend waves.
 - **Subagents never commit.** The orchestrator commits by explicit pathspec.
 - Migration numbering: the head is `068_plate_comments`; this session adds exactly one migration, `069_run_plate_registered_plate`.
@@ -127,7 +127,7 @@ def downgrade() -> None:
     op.drop_constraint("fk_plates_registered_plate", "plates", type_="foreignkey")
     op.drop_column("plates", "registered_plate_id")
 ```
-- [ ] **Step 4:** `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/test_migration_069_backfill.py tests/integration/test_run_repository_find_by_ids.py -q` → pass. Also run `uv run alembic check` if the repo uses it (skip if not configured). Ruff both ways on touched files.
+- [ ] **Step 4:** `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/test_migration_069_backfill.py tests/integration/test_run_repository_find_by_ids.py -q` → pass. Also run `uv run alembic check` if the repo uses it (skip if not configured). Ruff both ways on touched files.
 
 ---
 

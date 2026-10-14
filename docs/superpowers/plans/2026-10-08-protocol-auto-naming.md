@@ -23,7 +23,7 @@
 - Commits: explicit pathspecs only (`git add <new files>` then `git commit -m "..." -- <paths>`); the working tree has unrelated user changes (`.gitignore`, `Makefile`, `frontend/next-env.d.ts`, `frontend/AGENTS.md`) that must never be committed. Messages end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`; never add a `Claude-Session:` trailer.
 - `backend/data/` is gitignored (local loader scripts); changes there are not committed.
 - Never write to prot-cellar without the user's explicit confirmation in chat (Task 22).
-- Integration and API tests need `DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock`.
+- Integration and API tests need `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock`.
 - Migrations are numbered `NNN_snake_name` with `down_revision` the previous id; head today is `080_campaign_collections`. Apply with `make migrate` from the repo root.
 - Walkthrough: every task that adds user-visible UI or a setting appends a line to spec section 7 if it is missing there (the user's end-of-implementation Chrome tour).
 
@@ -770,7 +770,7 @@ async def test_patch_protocol_naming_bad_prefix_is_422(client):
     assert r.status_code == 422, r.text
 ```
 
-Run: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api/test_settings_protocol_naming.py -q`
+Run: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api/test_settings_protocol_naming.py -q`
 Expected: PASS.
 
 - [ ] **Step 7: Frontend settings card**
@@ -874,7 +874,7 @@ async def test_new_version_shares_the_code(uow, workspace_id, user_id):
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/test_protocol_code.py -q`
+Run: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/test_protocol_code.py -q`
 Expected: FAIL (`TypeError: Protocol.create() got an unexpected keyword argument 'code'`).
 
 - [ ] **Step 3: Domain + versioning**
@@ -1040,7 +1040,7 @@ async def test_create_mints_sequential_codes(client):
 
 ```bash
 cd backend && uv run pytest tests/unit -q -x
-DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/test_protocol_code.py tests/api/test_protocol_code_route.py tests/api/test_protocol_create_ontology_annotations.py -q
+DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/test_protocol_code.py tests/api/test_protocol_code_route.py tests/api/test_protocol_create_ontology_annotations.py -q
 ```
 
 Expected: PASS. Fix any unit test that builds `CreateProtocol(...)` positionally (the new kwarg is optional, so none should break).
@@ -1191,7 +1191,7 @@ Run: `cd backend && uv run pytest tests/unit/application/export/test_column_spec
 
 ```bash
 cd backend && uv run pytest tests/unit/application/export tests/unit/application/research_organization -q
-DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api -q -k "published or export"
+DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api -q -k "published or export"
 ```
 
 Expected: PASS. Update any snapshot assertion that compares the whole `protocol_ref` dict to include `"code"`.
@@ -1505,7 +1505,7 @@ async def remove_protocol_nickname(
 API test `backend/tests/api/test_protocol_nicknames.py`: create a protocol (POST /protocols as in Task 3's test), POST nickname `MABA` → 200 and `aliases[0] == {"label": "MABA", "kind": "nickname", ...}`; POST `maba` → 409; DELETE `?label=MABA` → 200 with `aliases == []`; `viewer_client` POST → 403.
 
 ```bash
-cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api/test_protocol_nicknames.py tests/integration/test_protocol_aliases_persistence.py -q
+cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api/test_protocol_nicknames.py tests/integration/test_protocol_aliases_persistence.py -q
 ```
 
 - [ ] **Step 5: Frontend card**
@@ -2249,7 +2249,7 @@ DI: the protocol-touching use cases (`DeleteProtocolCategory`) get `SQLAlchemyPr
 `backend/tests/api/test_protocol_categories.py`: POST `/defaults` → 27 rows; POST `{"label": "Biofilm inhibition"}` → 201 with the generic pattern; duplicate label (any case) → 409; PATCH bad pattern → 422; DELETE a category used by a protocol (create one with `category: "Cytotoxicity"`) → 409; `editor_client` POST → 403; `viewer_client` GET → 200.
 
 ```bash
-cd backend && uv run pytest tests/unit/domain/workspace_config -q && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api/test_protocol_categories.py -q
+cd backend && uv run pytest tests/unit/domain/workspace_config -q && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api/test_protocol_categories.py -q
 ```
 
 - [ ] **Step 6: Frontend**
@@ -2447,7 +2447,7 @@ Regenerate orval + churn. `use-naming-labels.ts`: crud hooks over `/naming-label
 Test `naming-label-admin.test.tsx`: mocked hooks return one Mtb term with default "M. tuberculosis" and no override → row shows "M. tuberculosis"; clicking Edit, typing "Mtb", Save calls the create mutation with `{ term_id, term_label, ontology_source, short_label: "Mtb" }`.
 
 ```bash
-cd backend && uv run pytest tests/unit/domain/workspace_config -q && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api/test_naming_labels.py -q
+cd backend && uv run pytest tests/unit/domain/workspace_config -q && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api/test_naming_labels.py -q
 cd ../frontend && pnpm exec vitest run src/features/workspace-config && pnpm exec tsc --noEmit -p . && pnpm exec biome check src/features/workspace-config src/app src/shared/lib/navigation.ts
 ```
 
@@ -2780,7 +2780,7 @@ def downgrade() -> None:
 - Frontend: regenerate orval + churn; `Protocol` gains `discriminator: ProtocolResponse["discriminator"]; name_flag: ProtocolResponse["name_flag"];`; `use-protocols.ts` update type drops `name`; `protocol-detail.tsx` edit dialog drops the Name input and `editName` state and the `name:` key in the payload (the save button is enabled without a name).
 
 ```bash
-cd backend && uv run pytest tests/unit -q && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api -q -k protocol
+cd backend && uv run pytest tests/unit -q && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api -q -k protocol
 cd ../frontend && pnpm exec tsc --noEmit -p . && pnpm exec vitest run src/features/screening-assay && pnpm exec biome check src/features/screening-assay
 ```
 
@@ -3206,7 +3206,7 @@ Write three tests against the real DB using the `uow`/`session_factory` fixtures
 3. Race: two concurrent tasks, each in its own `AsyncUnitOfWork`, call `lock_naming`, derive a bare name with no siblings, save a protocol with that name, sleep 0.2 s inside the lock, commit. Assert the second derivation (after the first commits) sees the first as a sibling (`needs_discriminator` True), so only one bare protocol is saved.
 
 ```bash
-cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/test_protocol_name_siblings.py -q
+cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/test_protocol_name_siblings.py -q
 ```
 
 - [ ] **Step 5: Commit**
@@ -3318,7 +3318,7 @@ async def test_publish_refused_while_incomplete(client, categories):
     assert (await client.post(f"/api/v1/protocols/{p['id']}/publish")).status_code == 409
 ```
 
-Run: `cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api/test_protocol_generated_names.py -q` → FAIL.
+Run: `cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api/test_protocol_generated_names.py -q` → FAIL.
 
 - [ ] **Step 2: CreateProtocol**
 
@@ -3382,7 +3382,7 @@ All these use cases get `names=_name_service(uow)` in DI with the shared `uow`; 
 Regenerate orval + churn. `CreateProtocolInput` (hand-written in `types/index.ts`) loses `name` and gains `discriminator?: string | null`. In `create-protocol-dialog.tsx`: remove the Name `<Input>`, its error text, the "Suggest name" button and `suggestedName`; replace them with a muted line "The name is generated from the category and fields below." (Task 16 replaces this with the live preview); remove `name` from the zod schema, `defaultValues`, `resetForm`, `canSubmit` and the submit payload; pass `name: ""` nowhere. `SimilarProtocolsPanel` keeps receiving `draft.name` as `""` until Task 16. Delete `lib/suggest-protocol-name.ts` and its test. `design-tab-protocol-card.tsx`: `const canEditTargets = isDraft && !isLocked;` (published protocols change targets through the correction dialog, Task 18).
 
 ```bash
-cd backend && uv run pytest tests/unit -q && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api -q
+cd backend && uv run pytest tests/unit -q && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api -q
 cd ../frontend && pnpm exec tsc --noEmit -p . && pnpm exec vitest run src/features && pnpm exec biome check src/features
 ```
 
@@ -3929,7 +3929,7 @@ Regenerate orval + churn. `useCorrectProtocol(protocolId)` → `POST /protocols/
 `correct-protocol-dialog.test.tsx` (mock the hooks): choosing "The assay changed" and continuing shows the "Create new protocol from this one" button; on the correction path, Save stays disabled with an empty reason and enables after typing one (with a savable preview mocked).
 
 ```bash
-cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api/test_protocol_correction.py -q
+cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api/test_protocol_correction.py -q
 cd ../frontend && pnpm exec vitest run src/features/screening-assay && pnpm exec tsc --noEmit -p . && pnpm exec biome check src/features/screening-assay
 ```
 
@@ -4170,7 +4170,7 @@ Hook `usePreviewNamingChange()` in `use-protocol-categories.ts` (or a new `use-n
 `naming-change-preview.test.tsx`: renders two changes and no collisions → Apply enabled and calls `onApply`; with a collision → alert text lists the codes and Apply is disabled.
 
 ```bash
-cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api/test_naming_change_preview.py tests/api/test_protocol_categories.py tests/api/test_naming_labels.py -q
+cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api/test_naming_change_preview.py tests/api/test_protocol_categories.py tests/api/test_naming_labels.py -q
 cd ../frontend && pnpm exec vitest run src/features/workspace-config && pnpm exec tsc --noEmit -p . && pnpm exec biome check src/features/workspace-config
 ```
 
@@ -4368,7 +4368,7 @@ Unit test `backend/tests/unit/application/screening/test_rederive_protocol_names
 Seed: default categories, home organism Mtb, a target `Pks13TE Domain` (organism "Mycobacterium tuberculosis"), a protocol (category "Enzyme inhibition", target linked, discriminator "FP") named `Pks13TE Domain inhibition [FP]`. Run `RederiveProtocolNames` after renaming the target row to `Pks13 TE domain`. Assert the protocol reads `Pks13 TE domain inhibition [FP]`, its first alias is the old name with reason "Registry renamed …". Second test: lock the protocol first; the relabel still applies. Third test: rename the target to 450 characters; the protocol keeps its name and gets `name_flag == "needs_facts"`.
 
 ```bash
-cd backend && uv run pytest tests/unit/application/screening/test_sync_targets.py -q && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration/test_target_rename_rederive.py tests/api/test_targets_sync.py -q
+cd backend && uv run pytest tests/unit/application/screening/test_sync_targets.py -q && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration/test_target_rename_rederive.py tests/api/test_targets_sync.py -q
 ```
 
 - [ ] **Step 5: Commit**
@@ -4416,7 +4416,7 @@ Run → FAIL.
 `use-protocol-names-admin.ts`: `useNameFlags()` (GET flags, key `["protocol-names", "flags"]`), `useRederiveNames()` (mutation POST rederive; invalidates `PROTOCOLS_KEY` and the flags key on apply). `protocol-names-admin.tsx`: `PageHeader` "Protocol names" (subtitle "Names are generated from each protocol's category and fields."); section "Needs attention" (flags table; empty state "Every protocol name is complete and unique."); section "Check all names" with a button that runs the dry run and shows the changes in the same before/after table layout as `NamingChangePreview` (reuse that component with `collisions=[]`), then "Apply" with reason "Names generated from fields". Page + navigation entry under "Vocabularies": `{ title: "Protocol Names", href: "/admin/protocol-names", icon: BookOpen, requires: "admin" }`. Test: flags render with codes; dry run result shows before/after; Apply calls the mutation with `dry_run: false`.
 
 ```bash
-cd backend && DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/api/test_protocol_names_admin.py -q
+cd backend && DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/api/test_protocol_names_admin.py -q
 cd ../frontend && pnpm exec vitest run src/features && pnpm exec tsc --noEmit -p . && pnpm exec biome check src
 ```
 
@@ -4520,7 +4520,7 @@ Draft a short message: protocol names are now generated and will change when fac
 
 ```bash
 cd backend && uv run ruff check src tests && uv run ruff format --check src tests && uv run lint-imports && uv run pytest tests/unit -q
-DOCKER_HOST=unix:///Users/sidx/.docker/run/docker.sock uv run pytest tests/integration tests/api -q
+DOCKER_HOST=unix://$HOME/.docker/run/docker.sock uv run pytest tests/integration tests/api -q
 cd ../frontend && pnpm exec tsc --noEmit -p . && pnpm exec vitest run && pnpm lint; echo "lint exit=$status"
 ```
 

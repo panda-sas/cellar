@@ -6,7 +6,7 @@
 
 ## Reference file (canonical fixture)
 
-`/Users/sidx/Downloads/NadD_LG-2200467564_100uM-DR_4.20.26.xlsx`
+`~/Downloads/NadD_LG-2200467564_100uM-DR_4.20.26.xlsx`
 
 384-well plate, long format. Columns:
 
