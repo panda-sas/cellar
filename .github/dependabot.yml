@@ -29,14 +29,21 @@ updates:
       interval: weekly
       day: monday
 
+  # Base-image majors (a new Python or Node line) are deliberate decisions, not weekly bumps.
   - package-ecosystem: docker
     directory: /backend
     schedule:
       interval: weekly
       day: monday
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: docker
     directory: /frontend
     schedule:
       interval: weekly
       day: monday
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
