@@ -76,7 +76,7 @@ jobs:
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
       - name: Scan image (release gate — same as make security-scan)
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
           image-ref: cellar-backend:scan
@@ -147,7 +147,7 @@ jobs:
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
       - name: Scan image (release gate — same as make security-scan)
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
           image-ref: cellar-frontend:scan
@@ -196,14 +196,14 @@ jobs:
           # Title-case the namespace: "backend" -> "Backend".
           TITLE="$(printf '%s' "$NS" | sed 's/^./\U&/') ${GITHUB_REF_NAME#${NS}-}"
           echo "title=${TITLE}" >> "$GITHUB_OUTPUT"
-      - uses: orhun/git-cliff-action@v4
+      - uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v4
         id: cliff
         with:
           config: cliff.toml
           args: --include-path "${{ steps.range.outputs.path }}" ${{ steps.range.outputs.range }}
         env:
           OUTPUT: CHANGES.md
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ steps.range.outputs.title }}
