@@ -34,6 +34,7 @@ from cellar.application.inventory.batch_policy import should_create_batch
 from cellar.application.inventory.create_batch import CreateBatch, CreateBatchCommand
 from cellar.application.inventory.salt_matcher import SaltMatcher, compute_formula_weight
 from cellar.application.inventory.sync_batch_identifier_mirrors import SyncBatchIdentifierMirrors
+from cellar.application.shared.actor_context import set_current_actor
 from cellar.domain.chemical_registration.enums import RegistrationAction
 from cellar.domain.workspace_config.repository import WorkspaceSettingsRepository
 from cellar.infrastructure.messaging.event_dispatcher import EventDispatcher
@@ -88,6 +89,9 @@ class RegistrationActivities:
     @activity.defn
     async def process_chunk(self, input: ChunkInput) -> ChunkOutput:
         """Process a chunk of molecules sequentially through registration + batch creation."""
+        # Audit actor for every event this activity dispatches (own asyncio task,
+        # so the contextvar cannot leak into other activities).
+        set_current_actor(uuid.UUID(input.submitted_by))
         session_factory = self._session_factory
         dispatcher = self._dispatcher
         structure_processor = self._structure_processor

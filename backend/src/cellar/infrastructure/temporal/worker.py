@@ -66,6 +66,7 @@ async def run_worker() -> None:
     from cellar.application.shared.mark_job_failed import MarkJobFailed
     from cellar.domain.shared.secret_provider import SecretProvider
     from cellar.infrastructure.cdd.client import CddVaultClient
+    from cellar.infrastructure.messaging.audit_event_handler import register_audit_handler
     from cellar.infrastructure.messaging.event_dispatcher import EventDispatcher
     from cellar.infrastructure.temporal.activities.bulk_tracking import BulkTrackingActivities
     from cellar.infrastructure.temporal.activities.cdd_fetch import CddFetchActivities
@@ -100,6 +101,9 @@ async def run_worker() -> None:
 
     session_factory = container[async_sessionmaker]
     dispatcher = container[EventDispatcher]
+    # Same catch-all the API registers: without it every event dispatched from an
+    # activity (bulk registration, project links, merges…) left no audit row.
+    register_audit_handler(dispatcher, session_factory)
     secret_provider = container[SecretProvider]
     cdd_client = container[CddVaultClient]
     structure_processor = container[StructureProcessorProtocol]

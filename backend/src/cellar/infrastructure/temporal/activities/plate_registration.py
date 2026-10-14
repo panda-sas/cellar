@@ -21,6 +21,7 @@ from cellar.application.inventory.registered_plates import (
     RegisterPlate,
     RegisterPlateCommand,
 )
+from cellar.application.shared.actor_context import set_current_actor
 from cellar.infrastructure.messaging.event_dispatcher import EventDispatcher
 from cellar.infrastructure.persistence.sqlalchemy.inventory.batch_repository import (
     SQLAlchemyBatchRepository,
@@ -53,6 +54,7 @@ class PlateRegistrationActivities:
     @activity.defn
     async def process_plate_chunk(self, input: PlateChunkInput) -> PlateChunkOutput:
         """Process a chunk of CDD plates — register plates, resolve wells, map wells."""
+        set_current_actor(uuid.UUID(input.submitted_by))  # audit actor for dispatched events
         output = PlateChunkOutput()
 
         for plate_item in input.items:

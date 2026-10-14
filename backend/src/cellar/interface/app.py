@@ -47,16 +47,13 @@ def create_app() -> FastAPI:
 
         await ensure_schema_current(container[_async_sm])
 
-        # Wire audit event handler — catch-all for all domain events
+        # Wire audit event handler — catch-all for all domain events (same helper as the worker)
         from sqlalchemy.ext.asyncio import async_sessionmaker as async_sm
 
-        from cellar.domain.shared.events import DomainEvent
-        from cellar.infrastructure.messaging.audit_event_handler import AuditEventHandler
+        from cellar.infrastructure.messaging.audit_event_handler import register_audit_handler
         from cellar.infrastructure.messaging.event_dispatcher import EventDispatcher
 
-        dispatcher = container[EventDispatcher]
-        session_factory = container[async_sm]
-        dispatcher.register(DomainEvent, AuditEventHandler(session_factory))
+        register_audit_handler(container[EventDispatcher], container[async_sm])
 
         from cellar.infrastructure.di._screening import register_protocol_naming_handlers
 

@@ -11,6 +11,7 @@ import uuid
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from temporalio import activity
 
+from cellar.application.shared.actor_context import set_current_actor
 from cellar.domain.chemical_registration.bulk_registration import BulkRegistration
 from cellar.domain.chemical_registration.cdd_molecule_import import CddMoleculeImport
 from cellar.domain.chemical_registration.enums import (
@@ -86,6 +87,7 @@ class BulkTrackingActivities:
     @activity.defn
     async def create_bulk_registration(self, input: CreateBulkRegInput) -> str:
         """Create a BulkRegistration aggregate and return its ID."""
+        set_current_actor(uuid.UUID(input.submitted_by))  # audit actor for dispatched events
         uow, repo, dispatcher = self._make_bulk_reg_deps()
         async with uow:
             bulk_reg = BulkRegistration.create(
@@ -215,6 +217,7 @@ class BulkTrackingActivities:
     @activity.defn
     async def create_cdd_import(self, input: CreateCddImportInput) -> str:
         """Create a CddMoleculeImport aggregate and return its ID."""
+        set_current_actor(uuid.UUID(input.submitted_by))
         uow, repo, dispatcher = self._make_cdd_deps()
         async with uow:
             imp = CddMoleculeImport.create(
@@ -307,6 +310,7 @@ class BulkTrackingActivities:
     @activity.defn
     async def create_cdd_plate_import(self, input: CreateCddPlateImportInput) -> str:
         """Create a CddPlateImport aggregate and return its ID."""
+        set_current_actor(uuid.UUID(input.submitted_by))
         uow, repo, dispatcher = self._make_plate_import_deps()
         async with uow:
             imp = CddPlateImport.create(

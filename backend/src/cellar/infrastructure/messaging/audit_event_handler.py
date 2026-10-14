@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from cellar.application.audit.audit_recording_service import AuditRecordingService
 from cellar.domain.shared.events import DomainEvent
+from cellar.infrastructure.messaging.event_dispatcher import EventDispatcher
 from cellar.infrastructure.persistence.sqlalchemy.audit.audit_repository import (
     SQLAlchemyAuditRepository,
 )
@@ -42,3 +43,14 @@ class AuditEventHandler:
                 event_type=type(event).__name__,
                 aggregate_id=str(event.aggregate_id),
             )
+
+
+def register_audit_handler(
+    dispatcher: EventDispatcher, session_factory: async_sessionmaker
+) -> None:
+    """Catch-all: every DomainEvent becomes an audit row.
+
+    Shared by the API lifespan and the Temporal worker so the two cannot drift —
+    a dispatcher without this handler silently drops the audit trail.
+    """
+    dispatcher.register(DomainEvent, AuditEventHandler(session_factory))
