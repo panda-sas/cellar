@@ -32,6 +32,11 @@ vi.mock("../hooks/use-protocols", () => ({
     isLoading: false,
     error: null,
   }),
+  useProtocolSummaries: () => ({
+    data: [{ id: "a", last_run_date: "2026-01-02T00:00:00Z" }],
+    isPending: false,
+    isError: false,
+  }),
 }));
 vi.mock("@/features/workspace-config/hooks/use-ontology-search", () => ({
   useTermsInUse: () => ({ data: [] }),
