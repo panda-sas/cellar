@@ -8,6 +8,10 @@ updates:
     groups:
       python-minor-patch:
         update-types: [minor, patch]
+    # Backend majors are deliberate too — track in-range updates only, batch majors by hand.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: npm
     directory: /frontend
@@ -28,6 +32,10 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    # Action majors are deliberate, not weekly bumps — batch them by hand.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   # Base-image majors (a new Python or Node line) are deliberate decisions, not weekly bumps.
   - package-ecosystem: docker

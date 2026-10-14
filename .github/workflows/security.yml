@@ -33,6 +33,10 @@ jobs:
 
   trivy-images:
     name: Trivy — backend & frontend images
+    # Image CVEs are base-image OS packages that don't move with a commit, so building
+    # both images on every push/PR (incl. every Dependabot PR) is wasted CI. The weekly
+    # cron catches base-image drift; release tags are gated by the scan in publish-images.yml.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
       COMPOSE_PROJECT_NAME: cellar # images build as cellar-backend / cellar-frontend
