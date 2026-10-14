@@ -60,6 +60,6 @@ class AuditAction(StrEnum):
 class AuthMethod(StrEnum):
     """Authentication method for electronic signatures (21 CFR Part 11)."""
 
-    PASSWORD = "password"
+    PASSWORD = "password"  # noqa: S105  # method name, not a secret
     MFA = "mfa"
     BIOMETRIC = "biometric"

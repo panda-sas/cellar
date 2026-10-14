@@ -79,7 +79,7 @@ class StageOutcome(StrEnum):
 class CheckVerdict(StrEnum):
     """Per-(result, criterion) verdict — one component of a StageOutcome."""
 
-    PASS = "pass"
+    PASS = "pass"  # noqa: S105  # verdict label, not a secret
     FAIL = "fail"
     UNTESTED = "untested"
 

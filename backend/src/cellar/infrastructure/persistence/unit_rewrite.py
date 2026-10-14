@@ -35,12 +35,12 @@ def _template_units(items: list | None) -> tuple[list | None, bool]:
 def rewrite_stored_units(conn: Connection) -> None:
     for table, column in _DISPLAY_UNIT_COLUMNS:
         for (old,) in conn.execute(
-            text(f"select distinct {column} from {table} where {column} is not null")
+            text(f"select distinct {column} from {table} where {column} is not null")  # noqa: S608  # names from the constant tuple above
         ).all():
             new = canonical_unit(old)
             if new != old:  # a blank string becomes NULL, like the domain now stores it
                 conn.execute(
-                    text(f"update {table} set {column}=:new where {column}=:old"),
+                    text(f"update {table} set {column}=:new where {column}=:old"),  # noqa: S608  # names from the constant tuple above
                     {"new": new, "old": old},
                 )
     rows = conn.execute(

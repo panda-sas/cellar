@@ -263,7 +263,7 @@ def _expand_protocol_column(token: str, by_id: dict) -> list[ColumnSpec]:
       ``drc:<rd_id>:<kind>:<level>``               — DR readout, one intercept
       ``any``                                       — all activity entries
     """
-    if token == "any":
+    if token == "any":  # noqa: S105  # column-spec token, not a credential
         return [ColumnSpec(key="any::text", header="Active in", kind="text")]
     parts = token.split(":")
     if parts[0] == "rd":
@@ -417,7 +417,7 @@ def _cell_value(spec: ColumnSpec, raw: dict) -> Any:
     if "::" not in spec.key:
         return None
     col_token, suffix = spec.key.rsplit("::", 1)
-    if col_token == "any":
+    if col_token == "any":  # noqa: S105  # column-spec token, not a credential
         block = (raw.get("activity") or {}).get("any") or {}
         return _format_any_entries(block.get("entries") or [])
     parent_token = _activity_parent_token(col_token)

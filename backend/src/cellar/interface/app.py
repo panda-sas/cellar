@@ -195,7 +195,9 @@ def create_app() -> FastAPI:
             vault_http = container[httpx.AsyncClient]
             await vault_http.aclose()
         except Exception:
-            pass
+            import structlog
+
+            structlog.get_logger().debug("lifespan.vault_http_close_failed", exc_info=True)
 
         # Cleanup: dispose the database engine
         from sqlalchemy.ext.asyncio import AsyncEngine

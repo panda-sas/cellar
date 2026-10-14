@@ -3,11 +3,18 @@ line-length = 99
 src = ["src"]
 
 [lint]
-select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "S"]
+# S101: every assert in src/ narrows a type after a Result or guard check; none sits
+# on a trust boundary. Input validation is Pydantic + domain errors, never assert.
+ignore = ["S101"]
 # Scientific notation used deliberately in docstrings/comments/labels:
 # σ (std dev, outlier thresholds), × (dimensions, e.g. 16×24 plates),
 # α (Greek-letter chemistry names), ′ (prime, e.g. the Z′ assay statistic).
 allowed-confusables = ["σ", "×", "α", "′"]
+
+[lint.per-file-ignores]
+# Tests: asserts, fake credentials, random, tmp paths and literal SQL are the point.
+"tests/**" = ["S101", "S105", "S106", "S108", "S311", "S608"]
 
 [lint.flake8-bugbear]
 # FastAPI's DI idiom requires calls in parameter defaults (Depends(), Query(), ...).
