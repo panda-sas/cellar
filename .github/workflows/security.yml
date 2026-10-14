@@ -1,0 +1,59 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1" # Mondays 06:17 UTC — weekly rescan against the fresh CVE feed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Same gate as `make security-scan` (the release gate), run early and often.
+# Accepted findings live in .trivyignore with a reason, nowhere else.
+jobs:
+  trivy-fs:
+    name: Trivy — lockfiles & secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          skip-dirs: node_modules,.venv,.next,.claude,snapshots,backend/data,.logs
+          trivyignores: .trivyignore
+
+  trivy-images:
+    name: Trivy — backend & frontend images
+    runs-on: ubuntu-latest
+    env:
+      COMPOSE_PROJECT_NAME: cellar # images build as cellar-backend / cellar-frontend
+    steps:
+      - uses: actions/checkout@v6
+      - run: docker compose -f docker-compose.infra.yml -f docker-compose.yml build backend frontend
+      - uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: cellar-backend
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          trivyignores: .trivyignore
+      - uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: cellar-frontend
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          trivyignores: .trivyignore
