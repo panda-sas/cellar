@@ -168,6 +168,13 @@ def _infer_operation_type(event: DomainEvent) -> OperationType:
         "locked": OperationType.DATA_LOCK,
         "unlocked": OperationType.DATA_UNLOCK,
         "lifecycle": OperationType.LIFECYCLE_CHANGE,
+        "export": OperationType.EXPORT,
+        # Credentials and membership: who can get in.
+        "apikey": OperationType.ACCESS_CHANGE,
+        "kioskdevice": OperationType.ACCESS_CHANGE,
+        "projectmember": OperationType.ACCESS_CHANGE,
+        # Workspace policy, kept apart so an access-change alert stays quiet.
+        "settingsupdated": OperationType.SETTINGS_CHANGE,
     }
     for keyword, op_type in mapping.items():
         if keyword in name:

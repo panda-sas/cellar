@@ -9,6 +9,7 @@ from returns.result import Failure, Success
 
 from cellar.application.export.start_export import StartExport, StartExportCommand
 from cellar.domain.export.enums import ExportFormat, ExportSource
+from cellar.domain.export.events import ExportRequested
 
 
 @dataclass
@@ -30,6 +31,12 @@ def _make_uow():
     return uow
 
 
+def _dispatcher():
+    dispatcher = MagicMock()
+    dispatcher.dispatch_all = AsyncMock()
+    return dispatcher
+
+
 @pytest.mark.asyncio
 async def test_start_persists_job_and_starts_workflow():
     workspace = uuid.uuid4()
@@ -39,8 +46,12 @@ async def test_start_persists_job_and_starts_workflow():
     orch = MagicMock()
     orch.start = AsyncMock(return_value="wf-1")
     auth = _Auth(workspace_id=workspace, user_id=user)
+    uow = _make_uow()
+    # A real UoW returns the tracked aggregate's events; mirror that for the saved job.
+    uow.commit = AsyncMock(side_effect=lambda: repo.save.call_args.args[0].collect_events())
+    dispatcher = _dispatcher()
 
-    uc = StartExport(_make_uow(), repo, orch)
+    uc = StartExport(uow, repo, orch, dispatcher)
     result = await uc(
         StartExportCommand(
             workspace_id=workspace,
@@ -56,6 +67,11 @@ async def test_start_persists_job_and_starts_workflow():
     assert result.unwrap().job_id is not None
     repo.save.assert_awaited_once()
     orch.start.assert_awaited_once()
+    # The request itself is audited: ExportRequested, attributed to the requester.
+    (events,) = dispatcher.dispatch_all.await_args.args
+    assert [type(e) for e in events] == [ExportRequested]
+    assert events[0].user_id == user
+    assert events[0].format == "csv"
 
 
 @pytest.mark.asyncio
@@ -67,7 +83,7 @@ async def test_start_rejects_unsupported_source():
     orch = MagicMock()
     orch.start = AsyncMock()
 
-    uc = StartExport(_make_uow(), repo, orch)
+    uc = StartExport(_make_uow(), repo, orch, _dispatcher())
     # Use a value not in ExportSource.SEARCH path — monkey-patch a fake source
     cmd = StartExportCommand(
         workspace_id=workspace,
@@ -92,7 +108,7 @@ async def test_start_filename_uses_hint():
     orch.start = AsyncMock(return_value="wf-2")
     auth = _Auth(workspace_id=workspace, user_id=user)
 
-    uc = StartExport(_make_uow(), repo, orch)
+    uc = StartExport(_make_uow(), repo, orch, _dispatcher())
     result = await uc(
         StartExportCommand(
             workspace_id=workspace,

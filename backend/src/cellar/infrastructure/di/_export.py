@@ -19,6 +19,7 @@ from cellar.application.export.start_export import StartExport
 from cellar.application.research_organization.execute_search import ExecuteSearch
 from cellar.application.screening.get_protocol import ListProtocols, ListProtocolsQuery
 from cellar.domain.export.repository import ExportJobRepository
+from cellar.infrastructure.messaging.event_dispatcher import EventDispatcher
 from cellar.infrastructure.persistence.sqlalchemy.export.export_job_repository import (
     SqlAlchemyExportJobRepository,
 )
@@ -79,6 +80,7 @@ def register_export(container: Container) -> None:
             repo=repo,
             storage=storage,
             build_search_stream=_build_search_stream,
+            dispatcher=c[EventDispatcher],
         )
 
     container.define(RenderExport, _render_export)
@@ -102,7 +104,7 @@ def register_export(container: Container) -> None:
     def _start_export(c: Container) -> StartExport:
         uow = AsyncUnitOfWork(c[async_sessionmaker])
         repo = SqlAlchemyExportJobRepository(uow)
-        return StartExport(uow, repo, c[ExportOrchestrator])
+        return StartExport(uow, repo, c[ExportOrchestrator], c[EventDispatcher])
 
     def _get_export_status(c: Container) -> GetExportStatus:
         uow = AsyncUnitOfWork(c[async_sessionmaker])

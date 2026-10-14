@@ -9,6 +9,7 @@ import pytest
 from cellar.application.export.render_export import RenderExport
 from cellar.application.export.row_streams.base import ColumnSpec, ExportRow
 from cellar.domain.export.enums import ExportFormat, ExportSource, ExportStatus
+from cellar.domain.export.events import ExportCompleted
 from cellar.domain.export.export_job import ExportJob
 
 
@@ -34,6 +35,7 @@ async def test_render_export_csv_marks_ready(tmp_path):
         query_snapshot={},
         filename="x.csv",
     )
+    job.clear_events()  # ExportRequested was StartExport's to dispatch
 
     repo = MagicMock()
     repo.find_by_id_in_workspace = AsyncMock(return_value=job)
@@ -41,16 +43,29 @@ async def test_render_export_csv_marks_ready(tmp_path):
     uow = AsyncMock()
     uow.__aenter__.return_value = uow
     uow.__aexit__.return_value = False
+    uow.commit = AsyncMock(side_effect=job.collect_events)  # as a real UoW would
     storage = MagicMock()
     storage.upload = AsyncMock()
+    dispatcher = MagicMock()
+    dispatcher.dispatch_all = AsyncMock()
 
     runner = RenderExport(
         uow=uow,
         repo=repo,
         storage=storage,
         build_search_stream=lambda j: _FakeStream(),
+        dispatcher=dispatcher,
     )
     await runner(job_id=job.id, workspace_id=workspace_id)
     assert job.status == ExportStatus.READY
     assert job.byte_size > 0
     assert storage.upload.await_count == 1
+
+    # Completion is audited with what left the building.
+    dispatcher.dispatch_all.assert_awaited_once()
+    (events,) = dispatcher.dispatch_all.await_args.args
+    completed = [e for e in events if isinstance(e, ExportCompleted)]
+    assert len(completed) == 1
+    assert completed[0].user_id == job.requested_by
+    assert completed[0].row_count == 2
+    assert completed[0].byte_size == job.byte_size

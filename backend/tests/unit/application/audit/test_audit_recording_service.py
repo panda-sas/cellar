@@ -21,7 +21,6 @@ from cellar.domain.audit_compliance.enums import (
 from cellar.domain.audit_compliance.models import AuditEntry, AuditOperation
 from cellar.domain.shared.events import DomainEvent
 
-
 # --- Fakes ---
 
 
@@ -214,15 +213,11 @@ class TestAuditRecordingService:
 
 class TestInferOperationType:
     def test_registered_event(self) -> None:
-        event = FakeRegisteredEvent(
-            aggregate_id=uuid.uuid4(), aggregate_type="molecule"
-        )
+        event = FakeRegisteredEvent(aggregate_id=uuid.uuid4(), aggregate_type="molecule")
         assert _infer_operation_type(event) == OperationType.REGISTRATION
 
     def test_merged_event(self) -> None:
-        event = FakeMergedEvent(
-            aggregate_id=uuid.uuid4(), aggregate_type="molecule"
-        )
+        event = FakeMergedEvent(aggregate_id=uuid.uuid4(), aggregate_type="molecule")
         assert _infer_operation_type(event) == OperationType.MERGE
 
     def test_unknown_event_defaults_to_data_entry(self) -> None:
@@ -230,3 +225,23 @@ class TestInferOperationType:
             aggregate_id=uuid.uuid4(), aggregate_type="unknown", workspace_id=uuid.uuid4()
         )
         assert _infer_operation_type(event) == OperationType.DATA_ENTRY
+
+
+@pytest.mark.parametrize(
+    ("event_name", "expected"),
+    [
+        ("ExportRequested", OperationType.EXPORT),
+        ("ExportCompleted", OperationType.EXPORT),
+        ("ExternalApiKeyCreated", OperationType.ACCESS_CHANGE),
+        ("KioskDeviceRevoked", OperationType.ACCESS_CHANGE),
+        ("ProjectMemberAdded", OperationType.ACCESS_CHANGE),
+        ("WorkspaceSettingsUpdated", OperationType.SETTINGS_CHANGE),
+    ],
+)
+def test_security_relevant_events_get_their_own_operation_type(
+    event_name: str, expected: OperationType
+) -> None:
+    # Name-based inference: the class name is all the mapping sees.
+    event_cls = type(event_name, (DomainEvent,), {})
+    event = event_cls(aggregate_id=uuid.uuid4(), aggregate_type="x", workspace_id=uuid.uuid4())
+    assert _infer_operation_type(event) == expected

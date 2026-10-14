@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from cellar.domain.export.enums import ExportFormat, ExportSource, ExportStatus
+from cellar.domain.export.events import ExportCompleted, ExportRequested
 from cellar.domain.shared.entity import AggregateRoot
 from cellar.domain.shared.errors import ConflictError
 
@@ -88,7 +89,7 @@ class ExportJob(AggregateRoot):
         query_snapshot: dict[str, Any],
         filename: str,
     ) -> ExportJob:
-        return cls(
+        job = cls(
             id=id,
             workspace_id=workspace_id,
             requested_by=requested_by,
@@ -97,6 +98,17 @@ class ExportJob(AggregateRoot):
             query_snapshot=query_snapshot,
             filename=filename,
         )
+        job.register_event(
+            ExportRequested(
+                aggregate_id=job.id,
+                aggregate_type="ExportJob",
+                workspace_id=workspace_id,
+                user_id=requested_by,
+                source=source.value,
+                format=format.value,
+            )
+        )
+        return job
 
     # ------------------------------------------------------------------
     # State transitions
@@ -138,6 +150,17 @@ class ExportJob(AggregateRoot):
         self.completed_at = datetime.now(UTC)
         self.progress = 1.0
         self.version += 1
+        self.register_event(
+            ExportCompleted(
+                aggregate_id=self.id,
+                aggregate_type="ExportJob",
+                workspace_id=self.workspace_id,
+                user_id=self.requested_by,
+                format=self.format.value,
+                row_count=self.row_count,
+                byte_size=byte_size,
+            )
+        )
 
     def mark_failed(self, error: str) -> None:
         if self.status in _TERMINAL:

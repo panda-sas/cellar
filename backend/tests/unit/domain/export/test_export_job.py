@@ -1,6 +1,7 @@
 from __future__ import annotations
+
 import uuid
-from datetime import datetime, timedelta, UTC
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -149,3 +150,36 @@ def test_set_row_count_and_progress_reject_terminal():
         job.set_row_count(10)
     with pytest.raises(ConflictError):
         job.report_progress(0.5)
+
+
+def test_create_registers_export_requested_for_the_requester():
+    from cellar.domain.export.events import ExportRequested
+
+    job = _make(format=ExportFormat.SDF)
+    (event,) = job.collect_events()
+    assert isinstance(event, ExportRequested)
+    assert event.aggregate_id == job.id
+    assert event.user_id == job.requested_by
+    assert event.format == "sdf"
+    assert ("format", None, "sdf") in event.audit_changes()
+
+
+def test_mark_ready_registers_export_completed_with_row_count():
+    from cellar.domain.export.events import ExportCompleted
+
+    job = _make()
+    job.clear_events()
+    job.mark_running()
+    job.set_row_count(42)
+    job.mark_ready(
+        file_key="exports/x.csv",
+        byte_size=1234,
+        content_type="text/csv",
+        expires_at=datetime.now(UTC) + timedelta(days=7),
+    )
+    (event,) = job.collect_events()
+    assert isinstance(event, ExportCompleted)
+    assert event.user_id == job.requested_by
+    assert event.row_count == 42
+    assert event.byte_size == 1234
+    assert ("row_count", None, "42") in event.audit_changes()

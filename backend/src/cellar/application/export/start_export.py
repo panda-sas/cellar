@@ -14,6 +14,7 @@ from cellar.application.export.orchestration import (
     StartExportWorkflowRequest,
     WorkflowOrchestratorUnavailable,
 )
+from cellar.application.shared.event_dispatcher import EventDispatcherProtocol
 from cellar.application.shared.unit_of_work import UnitOfWork
 from cellar.domain.export.enums import ExportFormat, ExportSource
 from cellar.domain.export.export_job import ExportJob
@@ -44,10 +45,12 @@ class StartExport:
         uow: UnitOfWork,
         repo: ExportJobRepository,
         orchestrator: ExportOrchestrator,
+        dispatcher: EventDispatcherProtocol,
     ) -> None:
         self._uow = uow
         self._repo = repo
         self._orchestrator = orchestrator
+        self._dispatcher = dispatcher
 
     async def __call__(
         self,
@@ -73,7 +76,8 @@ class StartExport:
 
         async with self._uow:
             await self._repo.save(job)
-            await self._uow.commit()
+            events = await self._uow.commit()
+        await self._dispatcher.dispatch_all(events)  # ExportRequested → audit row
 
         try:
             await self._orchestrator.start(

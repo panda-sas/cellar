@@ -23,6 +23,7 @@ from cellar.application.export.renderers.pdf_renderer import PdfRenderer
 from cellar.application.export.renderers.sdf_renderer import SdfRenderer
 from cellar.application.export.row_streams.base import ExportRow, RowStream
 from cellar.application.export.row_streams.search_results import SearchResultsRowStream
+from cellar.application.shared.event_dispatcher import EventDispatcherProtocol
 from cellar.application.shared.unit_of_work import UnitOfWork
 from cellar.domain.export.enums import ExportFormat, ExportSource, ExportStatus
 from cellar.domain.export.export_job import ExportJob
@@ -44,7 +45,9 @@ class RenderExport:
 
     Usage::
 
-        runner = RenderExport(uow=..., repo=..., storage=..., build_search_stream=...)
+        runner = RenderExport(
+            uow=..., repo=..., storage=..., build_search_stream=..., dispatcher=...
+        )
         await runner(job_id=job.id, workspace_id=job.workspace_id)
     """
 
@@ -52,6 +55,7 @@ class RenderExport:
     repo: ExportJobRepository
     storage: StorageClient
     build_search_stream: Callable[[ExportJob], SearchResultsRowStream]
+    dispatcher: EventDispatcherProtocol
 
     async def __call__(self, job_id: uuid.UUID, workspace_id: uuid.UUID) -> None:
         # ── 1. Load job, guard idempotency, advance to RUNNING ──────────────
@@ -123,7 +127,17 @@ class RenderExport:
                     expires_at=datetime.now(UTC) + timedelta(days=_TTL_DAYS),
                 )
                 await self.repo.save(job)
-                await self.uow.commit()
+                events = await self.uow.commit()
+            await self.dispatcher.dispatch_all(events)  # ExportCompleted → audit row
+            logger.info(
+                "export.completed",
+                job_id=str(job_id),
+                workspace_id=str(workspace_id),
+                user_id=str(job.requested_by),
+                format=job.format.value,
+                row_count=total,
+                byte_size=byte_size,
+            )
 
         except Exception as exc:
             logger.exception("export.failed", job_id=str(job_id))

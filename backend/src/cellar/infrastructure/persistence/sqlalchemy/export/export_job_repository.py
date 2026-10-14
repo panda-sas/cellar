@@ -18,6 +18,7 @@ class SqlAlchemyExportJobRepository:
         self._uow = uow
 
     async def save(self, job: ExportJob) -> None:
+        self._uow.track(job)  # so uow.commit() hands back the job's domain events
         session = self._uow.session
         existing = await session.get(ExportJobModel, job.id)
         if existing is None:
