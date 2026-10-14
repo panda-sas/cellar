@@ -1,0 +1,17 @@
+# Shared allowlist for the pre-commit hook (gitleaks auto-loads this file from the repo root)
+# and the CI scan in .github/workflows/security.yml.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "orval writes the OpenAPI version stamp into every generated file"
+regexTarget = "line"
+regexes = ['''OpenAPI spec version: ''']
+
+[[allowlists]]
+description = "test fixture token and log kwargs that the generic rule mistakes for keys"
+regexTarget = "line"
+regexes = [
+  '''ISSUED_TOKEN = "tok_abc123xyz"''',
+  '''auth\.workspace_id, (result_count|curve_id)''',
+]
