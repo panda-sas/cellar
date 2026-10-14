@@ -23,6 +23,11 @@ FRONTEND := cd frontend
 LOGDIR   := .logs
 COMPOSE_INFRA := docker compose -f docker-compose.infra.yml
 COMPOSE_PROD  := docker compose -f docker-compose.infra.yml -f docker-compose.prod.yml
+# Compose names built images <project>-<service>, reading COMPOSE_PROJECT_NAME from
+# .env, which can differ from the directory name. Mirror that so the scan targets the
+# image compose actually built; fall back to the directory name.
+IMAGE_PREFIX := $(shell sed -n 's/^COMPOSE_PROJECT_NAME=//p' .env 2>/dev/null)
+IMAGE_PREFIX := $(if $(IMAGE_PREFIX),$(IMAGE_PREFIX),$(notdir $(CURDIR)))
 
 .PHONY: help up down install dev dev-be dev-fe dev-worker stop migrate test test-api test-all lint security-scan nuke restart status logs logs-dev prod-up prod-down prod-logs prod-pull export-data import-data
 
@@ -159,8 +164,8 @@ security-scan: ## Trivy gate before a release: repo lockfiles + secrets, then bo
 	trivy fs --scanners vuln,secret --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
 	  --skip-dirs node_modules,.venv,.next,.claude,snapshots,backend/data,.logs .
 	$(COMPOSE_INFRA) -f docker-compose.yml build backend frontend
-	trivy image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 $(notdir $(CURDIR))-backend
-	trivy image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 $(notdir $(CURDIR))-frontend
+	trivy image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 $(IMAGE_PREFIX)-backend
+	trivy image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 $(IMAGE_PREFIX)-frontend
 
 # ── Cleanup ────────────────────────────────────────────────────
 
