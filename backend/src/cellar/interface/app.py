@@ -13,6 +13,7 @@ from cellar.infrastructure.duar.auth import get_duar
 from cellar.infrastructure.logging import configure_logging
 from cellar.interface.error_handlers import register_error_handlers
 from cellar.interface.middleware.request_context import RequestContextMiddleware
+from cellar.interface.middleware.security_headers import SecurityHeadersMiddleware
 from cellar.version import build_info
 
 
@@ -233,6 +234,9 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Baseline security headers on every response (CORS preflights included).
+    app.add_middleware(SecurityHeadersMiddleware)
 
     # Request context — outermost, so request_id wraps everything incl. CORS.
     app.add_middleware(RequestContextMiddleware)
