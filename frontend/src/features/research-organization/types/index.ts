@@ -586,7 +586,10 @@ export type ImageSize = "small" | "medium" | "large";
 /** What the results grid + exports show. Every key here is honored by both
  *  the on-screen grid and the export column builder — options that only one
  *  side understood used to sit in the customizer doing nothing. */
+export type SearchDisplayPreset = "compact" | "structure" | "curves";
+
 export interface ReportConfig {
+  displayPreset?: SearchDisplayPreset;
   imageSize: ImageSize;
   visibleFields: VisibleFields;
 }

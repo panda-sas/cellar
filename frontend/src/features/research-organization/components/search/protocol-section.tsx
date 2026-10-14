@@ -9,6 +9,7 @@ import {
 } from "@/features/screening-assay/hooks/use-protocols";
 import { CURVE_CLASS_LABELS, type Protocol } from "@/features/screening-assay/types";
 import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import {
   Command,
@@ -215,10 +216,10 @@ function WhereList({ where, options, anyProtocol = false, onChange }: WhereListP
         <button
           type="button"
           onClick={add}
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
         >
           <Plus className="h-3 w-3" />
-          add filter (optional)
+          Add activity condition
         </button>
       ) : (
         <>
@@ -236,10 +237,10 @@ function WhereList({ where, options, anyProtocol = false, onChange }: WhereListP
           <button
             type="button"
             onClick={add}
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
           >
             <Plus className="h-3 w-3" />
-            and
+            Add another condition
           </button>
         </>
       )}
@@ -272,7 +273,7 @@ function WhereRow({ cond, isFirst, options, anyProtocol, onChange, onRemove }: W
     <div className="flex items-center gap-1.5 flex-wrap">
       {/* Conjunction label — first row says "where", subsequent rows say "and" */}
       <span className="text-sm text-muted-foreground shrink-0 w-16">
-        {isFirst ? "where" : "and"}
+        {isFirst ? "Endpoint" : "and"}
       </span>
 
       {/* Readout-def + intercept picker (DR intercepts, numeric readouts,
@@ -311,7 +312,7 @@ function WhereRow({ cond, isFirst, options, anyProtocol, onChange, onRemove }: W
           }
         }}
       >
-        <SelectTrigger className="h-8 w-56 text-sm shrink-0">
+        <SelectTrigger className="h-8 w-56 max-w-full text-sm shrink-0">
           <SelectValue placeholder="select readout…" />
         </SelectTrigger>
         <SelectContent>
@@ -547,6 +548,7 @@ interface ActivityRowProps {
    *  any-protocol where-option catalog. */
   fullProtocols: Protocol[];
   isFirst: boolean;
+  showConjunction?: boolean;
   /** True when the search panel has at least one project selected — controls
    *  visibility of the "Show all (across projects)" toggle inside the picker. */
   hasProjectScope: boolean;
@@ -572,6 +574,7 @@ function ActivityRow({
   protocols,
   fullProtocols,
   isFirst,
+  showConjunction = false,
   hasProjectScope,
   showAllProjects,
   isPristine = false,
@@ -647,28 +650,18 @@ function ActivityRow({
   const whereList = readWhere(criterion);
 
   return (
-    <div className="space-y-1">
-      {/* Main row: [remove] [and/or] In [Specific Protocol] [protocol select] */}
-      <div className="flex items-center gap-1.5">
-        {/* Remove button */}
-        <button
-          type="button"
-          onClick={onRemove}
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
-          aria-label="Remove criterion"
-        >
-          <Minus className="h-3 w-3" />
-        </button>
-
-        {/* Conjunction (hidden for first row) */}
-        {!isFirst ? (
+    <fieldset
+      aria-label={`Assay ${index + 1}`}
+      className="min-w-0 space-y-2 rounded-lg border border-border/70 bg-muted/15 p-3"
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-semibold text-muted-foreground">Assay {index + 1}</span>
+        {!isFirst && showConjunction && (
           <Select
             value={conjunction}
             onValueChange={(v) => onConjunctionChange(v as ProtocolConjunction)}
           >
-            {/* px-2: the default px-3 + chevron left too little room and
-                "and" rendered as "anc". */}
-            <SelectTrigger className="h-8 w-[4.5rem] px-2 text-sm shrink-0">
+            <SelectTrigger aria-label={`Join assay ${index + 1}`} className="h-7 w-20 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -676,15 +669,19 @@ function ActivityRow({
               <SelectItem value="or">or</SelectItem>
             </SelectContent>
           </Select>
-        ) : (
-          <span className="w-[4.5rem] shrink-0" />
         )}
-
-        {/* "In" label — fixed width keeps Protocol/runs/where labels in the
-            same vertical line so the sub-rows read as a clean two-column
-            "label | control" stack. */}
-        <span className="text-sm text-muted-foreground shrink-0 w-16">Protocol</span>
-
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="ml-auto size-6 text-muted-foreground hover:text-destructive"
+          onClick={onRemove}
+          aria-label={`Remove assay ${index + 1}`}
+        >
+          <Minus className="size-3.5" />
+        </Button>
+      </div>
+      <div className="flex min-w-0 items-center gap-2">
         {/* Protocol picker (rich rows: status dot + name + target + run stats) */}
         <Popover open={protocolOpen} onOpenChange={setProtocolOpen}>
           <PopoverTrigger asChild>
@@ -820,12 +817,8 @@ function ActivityRow({
         </Popover>
       </div>
 
-      {/* Sub-rows: runs (default "any") then optional where-clause. The
-          left indent matches the Protocol label's starting x — remove (20px)
-          + gap (6px) + conjunction/spacer (72px) + gap (6px) = 104px — so
-          all three labels (Protocol/runs/where) and their controls align. */}
       {hasProtocol && (
-        <div className="ml-[104px] space-y-1.5">
+        <div className="space-y-3">
           {/* runs — per-protocol only; "Any protocol" has no run scope */}
           {criterion.protocol_id !== null && (
             <RunScopePicker
@@ -856,8 +849,8 @@ function ActivityRow({
         </div>
       )}
 
-      {protocolInvalid && <p className="ml-[104px] text-xs text-destructive">Choose a protocol.</p>}
-    </div>
+      {protocolInvalid && <p className="text-xs text-destructive">Choose a protocol.</p>}
+    </fieldset>
   );
 }
 
@@ -903,9 +896,21 @@ export function ProtocolSection({
     includeAll: showAllProjects,
   });
 
+  const [customLogic, setCustomLogic] = useState(false);
+  const joins = criteria.length > 1 ? conjunctions.slice(1) : conjunctions;
+  const uniformMode =
+    joins.length > 0 && joins.every((join) => join === "and")
+      ? "all"
+      : joins.every((join) => join === "or")
+        ? "any"
+        : "custom";
+  const matchMode = customLogic || uniformMode === "custom" ? "custom" : uniformMode;
   const addTerm = useCallback(() => {
-    onChange([...criteria, defaultActivityCriterion()], [...conjunctions, "or"]);
-  }, [criteria, conjunctions, onChange]);
+    onChange(
+      [...criteria, defaultActivityCriterion()],
+      [...conjunctions, matchMode === "all" ? "and" : "or"],
+    );
+  }, [criteria, conjunctions, matchMode, onChange]);
 
   // Picking a protocol on the pristine placeholder row promotes it to a
   // real criterion. Until that happens the row contributes nothing to the
@@ -949,24 +954,58 @@ export function ProtocolSection({
 
   return (
     <div className="space-y-2">
-      {/* Section header — `+ Add` is hidden while the pristine placeholder is
-          showing, so the chemist isn't presented with two ways to create their
-          first row. Once they pick a protocol it reappears for adding more. */}
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Protocols
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">Assay activity</h3>
         {!showPristine && (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
+            className="text-xs text-primary"
             onClick={addTerm}
-            className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/20 transition-colors"
           >
-            <Plus className="h-3 w-3" />
-            Add
-          </button>
+            <Plus className="size-3.5" /> Add assay
+          </Button>
         )}
       </div>
+      <p className="text-xs text-muted-foreground">
+        An assay alone matches tested compounds. Add activity conditions to narrow by endpoints,
+        such as IC50 &lt; 10 µM.
+      </p>
+      {criteria.length > 1 && (
+        <div className="space-y-1.5 rounded-lg bg-primary/5 px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium">Find compounds that</span>
+            <Select
+              value={matchMode}
+              onValueChange={(value) => {
+                setCustomLogic(value === "custom");
+                if (value !== "custom")
+                  onChange(
+                    criteria,
+                    criteria.map(() => (value === "all" ? "and" : "or")),
+                  );
+              }}
+            >
+              <SelectTrigger aria-label="Assay matching" className="h-8 w-44 bg-background text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">Match any assay</SelectItem>
+                <SelectItem value="all">Match all assays</SelectItem>
+                <SelectItem value="custom">Custom logic</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {matchMode === "all"
+              ? "Must meet the conditions in every assay below."
+              : matchMode === "any"
+                ? "Must meet the conditions in at least one assay below."
+                : "Choose AND / OR on each card. Consecutive OR assays form a group; groups are joined by AND. Review the draft summary before searching."}
+          </p>
+        </div>
+      )}
 
       {/* Empty state — only when the user has explicitly dismissed the
           pristine placeholder and there are no real rows. */}
@@ -1014,6 +1053,7 @@ export function ProtocolSection({
             protocols={protocolSummaries ?? []}
             fullProtocols={protocols}
             isFirst={i === 0}
+            showConjunction={matchMode === "custom"}
             hasProjectScope={hasProjectScope}
             showAllProjects={showAllProjects}
             onShowAllProjectsChange={setShowAllProjects}

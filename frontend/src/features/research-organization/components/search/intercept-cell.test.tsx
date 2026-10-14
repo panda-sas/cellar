@@ -106,6 +106,7 @@ describe("<InterceptCell />", () => {
     const av: ActivityValue = {
       ...baseAv,
       run_count: 3,
+      selection_rule: "geometric_mean",
       intercept_aggregates: [
         {
           spec: { kind: "ec", level: 90.0 },
@@ -232,4 +233,35 @@ describe("<InterceptCell />", () => {
       expect(byOwnText(/1\.8/)).toBeTruthy();
     });
   });
+});
+
+it("opens single-run evidence without triggering the compound row", async () => {
+  const { vi } = await import("vitest");
+  const rowClick = vi.fn();
+  const av: ActivityValue = {
+    ...baseAv,
+    runs: [
+      {
+        run_id: "run-1",
+        curve_id: "curve-1",
+        run_date: "2026-06-05",
+        curve_class: "full",
+        r_squared: 0.98,
+        intercept_values: [{ spec: { kind: "ic", level: 50 }, value: 0.12 }],
+      },
+    ],
+  };
+  render(
+    <div onClick={rowClick} onKeyDown={() => {}} role="presentation">
+      <InterceptCell av={av} spec={null} isPrimary mode="latest" />
+    </div>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: /show run history/i }));
+  expect(await screen.findByText("Assay evidence")).toBeInTheDocument();
+  expect(screen.getByText("Aggregation: Latest run")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "2026-06-05" })).toHaveAttribute(
+    "href",
+    "/assays/runs/run-1",
+  );
+  expect(rowClick).not.toHaveBeenCalled();
 });

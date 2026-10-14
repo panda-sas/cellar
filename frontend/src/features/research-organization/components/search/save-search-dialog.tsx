@@ -22,12 +22,17 @@ import { Textarea } from "@/shared/components/ui/textarea";
 import { useEffect, useState } from "react";
 import { useProjects } from "../../hooks/use-projects";
 import { useCreateSavedSearch, useUpdateSavedSearch } from "../../hooks/use-saved-searches";
-import { aggregationModeToWire, useAggregationMode } from "../../lib/use-aggregation-mode";
+import {
+  type AggregationMode,
+  aggregationModeToWire,
+  useAggregationMode,
+} from "../../lib/use-aggregation-mode";
 import type { ReportConfig, SavedSearch, SearchQuery, SearchVisibility } from "../../types";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
 interface SaveSearchDialogProps {
+  executedAggregation?: AggregationMode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   query: SearchQuery;
@@ -39,6 +44,7 @@ interface SaveSearchDialogProps {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function SaveSearchDialog({
+  executedAggregation,
   open,
   onOpenChange,
   query,
@@ -90,7 +96,7 @@ export function SaveSearchDialog({
     // non-default mode is unambiguous after re-save.
     const queryWithAggregation = {
       ...(query as unknown as Record<string, unknown>),
-      aggregation: aggregationModeToWire(aggregationMode),
+      aggregation: aggregationModeToWire(executedAggregation ?? aggregationMode),
     };
 
     if (isUpdate) {

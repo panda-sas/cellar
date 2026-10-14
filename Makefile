@@ -133,7 +133,8 @@ import-demo-data: ## Load demo data (requires `make up`). Optional: WORKSPACE_ID
 	cd backend && WORKSPACE_ID=$(WORKSPACE_ID) uv run python ../demo-data/load.py
 
 export-data: ## Export this machine's real data to a bundle (see REPLICATION.md). Optional: BUNDLE=<path>
-	$(BACKEND) && uv run python scripts/replicate.py export $(if $(BUNDLE),"$(BUNDLE)",)
+	@mkdir -p snapshots
+	$(BACKEND) && uv run python scripts/replicate.py export "$(abspath $(or $(BUNDLE),snapshots/cellar-$(shell date +%Y-%m-%d).tar.gz))"
 
 import-data: ## Import a bundle into this machine. Required: BUNDLE=<path>. Optional: ARGS="--truncate"
 	@test -n "$(BUNDLE)" || { echo "usage: make import-data BUNDLE=path/to/bundle.tar.gz"; exit 1; }

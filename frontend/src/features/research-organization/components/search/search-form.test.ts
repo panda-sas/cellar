@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SearchQuery } from "../../types";
-import { decomposeQuery } from "./search-form";
+import { countSearchCriteria, decomposeQuery } from "./search-form";
 
 const act = (protocol_id: string) => ({ type: "activity" as const, protocol_id, where: [] });
 
@@ -16,5 +16,28 @@ describe("decomposeQuery", () => {
     const { activityCriteria, protocolConjunctions } = decomposeQuery(query);
     expect(activityCriteria.map((c) => c.protocol_id)).toEqual(["A", "B", "C"]);
     expect(protocolConjunctions).toEqual(["and", "and", "or"]);
+  });
+});
+
+describe("countSearchCriteria", () => {
+  it("counts assay criteria inside OR groups instead of counting the group as one filter", () => {
+    expect(
+      countSearchCriteria([{ type: "group", logic: "or", criteria: [act("A"), act("B")] }]),
+    ).toBe(2);
+  });
+
+  it("counts nested groups and other filters without inflating the count", () => {
+    expect(
+      countSearchCriteria([
+        act("A"),
+        {
+          type: "group",
+          logic: "or",
+          criteria: [act("B"), { type: "group", logic: "and", criteria: [act("C")] }],
+        },
+        { type: "project", project_ids: ["p1", "p2"] },
+      ]),
+    ).toBe(4);
+    expect(countSearchCriteria([])).toBe(0);
   });
 });

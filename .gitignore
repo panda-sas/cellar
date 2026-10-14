@@ -55,6 +55,9 @@ docker-compose.override.yml
 # Storage
 /data/
 
+# Replication bundles (see REPLICATION.md) — real data, never committed
+/snapshots/
+
 # Alembic
 backend/alembic/versions/*.pyc
 

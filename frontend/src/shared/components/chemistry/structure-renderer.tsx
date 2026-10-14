@@ -14,6 +14,7 @@ interface StructureRendererProps {
   height?: number;
   /** Optional SMARTS pattern to highlight matching atoms/bonds */
   highlightSmarts?: string;
+  queryKind?: "smiles" | "smarts";
   /** Additional CSS class */
   className?: string;
 }
@@ -29,6 +30,7 @@ function StructureRendererInner({
   width = 300,
   height = 200,
   highlightSmarts,
+  queryKind = "smiles",
   className,
 }: StructureRendererProps) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
@@ -47,7 +49,7 @@ function StructureRendererInner({
         const rdkit = await getRDKit();
         if (cancelled) return;
 
-        const mol = rdkit.get_mol(smiles);
+        const mol = queryKind === "smarts" ? rdkit.get_qmol(smiles) : rdkit.get_mol(smiles);
         if (!mol || !mol.is_valid()) {
           mol?.delete();
           setError(true);
@@ -88,7 +90,7 @@ function StructureRendererInner({
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [smiles, width, height, highlightSmarts]);
+  }, [smiles, width, height, highlightSmarts, queryKind]);
 
   if (loading) {
     return <Skeleton className={className} style={{ width, height }} />;

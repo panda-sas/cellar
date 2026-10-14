@@ -23,7 +23,7 @@ function readDismissed(workspaceId: string): string[] {
 /** What an admin still has to configure before protocol work runs smoothly. Admins only;
  *  gone once everything is done; "Dismiss" hides it for this viewer in this workspace until
  *  something else goes missing. */
-export function SetupChecklist() {
+export function SetupChecklist({ compact = false }: { compact?: boolean }) {
   const isAdmin = useAuthzHasRole("admin");
   const workspaceId = useAuthz().user?.workspaceId ?? "";
   const { data } = useWorkspaceSetup(isAdmin);
@@ -99,6 +99,36 @@ export function SetupChecklist() {
       // storage unavailable: hidden for this visit only
     }
   };
+
+  if (compact)
+    return (
+      <div className="mb-4 flex items-start gap-2 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2">
+        <details className="min-w-0 flex-1">
+          <summary className="cursor-pointer py-1 text-sm font-medium text-primary">
+            Protocol setup{" "}
+            <span className="ml-2 font-normal text-muted-foreground">
+              {items.length} {items.length === 1 ? "item" : "items"} to review
+            </span>
+          </summary>
+          <ul className="space-y-3 pb-2 pt-3">
+            {items.map((i) => (
+              <li key={i.key} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                <span>{i.text}</span>
+                <span className="flex flex-wrap items-center gap-2">
+                  {i.action}
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={i.link}>{i.label}</Link>
+                  </Button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+        <Button variant="ghost" size="sm" onClick={dismiss}>
+          Dismiss
+        </Button>
+      </div>
+    );
 
   return (
     <Card className="mb-4">

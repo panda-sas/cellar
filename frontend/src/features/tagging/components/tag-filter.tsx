@@ -30,13 +30,23 @@ interface TagFilterProps {
   /** Offer only tags in use on this entity type — a filter over compounds
    *  should not offer tags that were only ever put on protocols. */
   entityType?: TaggableEntityType;
+  alphabetical?: boolean;
 }
 
-export function TagFilter({ value, onChange, entityType }: TagFilterProps) {
+export function TagFilter({ value, onChange, entityType, alphabetical = false }: TagFilterProps) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const debouncedQ = useDebounce(q, SEARCH_DEBOUNCE_MS);
   const { data: tags } = useTags({ q: debouncedQ || undefined, limit: 50, entityType });
+
+  const sortedTags = alphabetical
+    ? [...(tags ?? [])].sort((a, b) =>
+        `${a.key}=${a.value ?? ""}`.localeCompare(`${b.key}=${b.value ?? ""}`, undefined, {
+          numeric: true,
+          sensitivity: "base",
+        }),
+      )
+    : tags;
 
   const toggle = (id: string) =>
     onChange({
@@ -67,7 +77,7 @@ export function TagFilter({ value, onChange, entityType }: TagFilterProps) {
               No tags.
             </CommandEmpty>
             <CommandGroup>
-              {tags?.map((t) => (
+              {sortedTags?.map((t) => (
                 <CommandItem
                   key={t.id}
                   value={`${t.key}=${t.value ?? ""}`}

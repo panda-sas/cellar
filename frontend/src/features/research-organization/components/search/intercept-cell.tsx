@@ -1,24 +1,19 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
-import { useState } from "react";
 
 import { CurveClassBadge } from "@/features/screening-assay/components/curve-class-badge";
 import { ReportedEndpointBadge } from "@/features/screening-assay/components/reported-endpoint-badge";
-import {
-  findInterceptValue,
-  formatInterceptDisplay,
-  maxDoseFromRawData,
-} from "@/features/screening-assay/lib/intercept-label";
 import type { InterceptSpec } from "@/features/screening-assay/types";
 import { Badge } from "@/shared/components/ui/badge";
-import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
+
 import { cn } from "@/shared/lib/utils";
 
 import type { AggregationMode } from "../../lib/use-aggregation-mode";
 import type { ActivityValue, InterceptKey } from "../../types";
 
-import { RunHistoryTooltip } from "./run-history-tooltip";
+import { activityEndpoint, molarFactor } from "../../lib/assay-evidence";
+import { AssayEvidence } from "./assay-evidence";
 
 export interface InterceptCellProps {
   av: ActivityValue | undefined;
@@ -36,41 +31,6 @@ function specToKey(spec: InterceptKey | InterceptSpec | null): InterceptKey | nu
   // Both InterceptKey and InterceptSpec carry {kind, level}; pick those.
   // kind is narrowed to "ec" | "ic" on both sides so the cast is safe.
   return { kind: spec.kind, level: spec.level };
-}
-
-function findAggregate(av: ActivityValue, ik: InterceptKey | null) {
-  if (!av.intercept_aggregates) return null;
-  if (ik === null) {
-    return av.intercept_aggregates.find((a) => a.spec.kind === "primary") ?? null;
-  }
-  return (
-    av.intercept_aggregates.find((a) => a.spec.kind === ik.kind && a.spec.level === ik.level) ??
-    null
-  );
-}
-
-/** Exponent N such that 1 unit = 10⁻ᴺ M.
- *  pX = -log10(value × 10⁻ᴺ) = N − log10(value). */
-function unitToMolarExponent(unit: string | null | undefined): number {
-  if (!unit) return 6; // assume µM — the dominant unit on this codebase
-  switch (unit.trim().toLowerCase()) {
-    case "m":
-      return 0;
-    case "mm":
-      return 3;
-    case "um":
-    case "µm":
-    case "μm":
-      return 6;
-    case "nm":
-      return 9;
-    case "pm":
-      return 12;
-    case "fm":
-      return 15;
-    default:
-      return 6;
-  }
 }
 
 /** Chemist-facing label for the log-domain summary: pIC50 / pEC90 / etc.
@@ -96,41 +56,17 @@ function formatFoldRange(foldRange: number): string {
 }
 
 export function InterceptCell({ av, spec, isPrimary, mode }: InterceptCellProps) {
-  const [open, setOpen] = useState(false);
-
   if (!av) return <span className="text-muted-foreground">&mdash;</span>;
 
   const ik = specToKey(spec);
-  const aggregate = findAggregate(av, ik);
+  const {
+    aggregate,
+    display,
+    qualifier: wireQualifier,
+    mode: evidenceMode,
+  } = activityEndpoint(av, ik, isPrimary, mode);
   const runCount = av.run_count ?? 1;
-  const hasDrillIn = runCount >= 2 && (av.runs?.length ?? 0) > 0;
 
-  // Existing intercept_values path (legacy + single-run cells) — kept so the
-  // cell still works when intercept_aggregates is absent (older endpoints,
-  // unmigrated callers). InterceptSpec carries the extra `basis` + `label`
-  // fields findInterceptValue requires; bare InterceptKey doesn't, so we
-  // only run the lookup when the caller handed us a full spec.
-  const fullSpec = spec !== null && "basis" in spec ? (spec as InterceptSpec) : null;
-  const iv = fullSpec ? findInterceptValue(av.intercept_values, fullSpec) : undefined;
-
-  const value = aggregate?.selected_value ?? iv?.value ?? (isPrimary ? av.value : null);
-  const qualifierFromAggregate = aggregate?.selected_qualifier;
-  const display = formatInterceptDisplay({
-    value,
-    at_bound: iv?.at_bound,
-    curve_class: av.curve_params?.curve_class,
-    max_dose: maxDoseFromRawData(av.raw_data),
-    runCount,
-    mode,
-    foldRange: aggregate?.aggregate_stats?.fold_range ?? null,
-    disagreement: aggregate?.disagreement_flag ?? av.disagreement_flag ?? false,
-  });
-
-  // Wire-level qualifier prefix (matches existing renderInterceptCell
-  // behavior): only prepend on scalar cells where the wire qualifier
-  // disagrees with the BE's resolved one. Aggregate's selected_qualifier
-  // takes precedence when present.
-  const wireQualifier = qualifierFromAggregate ?? av.qualifier;
   const q =
     wireQualifier && wireQualifier !== "=" && display.kind === "scalar" ? `${wireQualifier} ` : "";
   const showUnit = display.kind === "scalar" || display.kind === "qualifier";
@@ -218,34 +154,33 @@ export function InterceptCell({ av, spec, isPrimary, mode }: InterceptCellProps)
   const isScalarHeadline = display.kind === "scalar";
   const showAggregateLines =
     runCount >= 2 && stats !== null && stats !== undefined && isScalarHeadline;
-  const isAggregateMode = mode === "gmean" || mode === "mean";
+  const isAggregateMode = evidenceMode === "gmean" || evidenceMode === "mean";
 
   // In gmean/mean modes the headline already IS the geometric mean (with the
   // ×N chip in the decoration); the gmean line would be a redundant restate.
   // In Latest / Best R² modes the headline is a single picked value, so the
   // gmean line surfaces the spread context the chemist needs to trust it.
-  const showGmeanLine =
+  const gmeanLine =
     showAggregateLines &&
     !isAggregateMode &&
     stats?.geometric_mean != null &&
-    stats?.fold_range != null;
-
-  const showPxLine =
-    showAggregateLines && stats?.log_value_mean != null && stats?.log_value_sd != null;
-
-  const gmeanLine = showGmeanLine ? (
-    <div className="font-mono text-[10px] text-muted-foreground tabular-nums">
-      gmean {stats!.geometric_mean!.toPrecision(3)} · {formatFoldRange(stats!.fold_range!)}
-    </div>
-  ) : null;
-
-  const pxLine = showPxLine ? (
-    <div className="font-mono text-[10px] text-muted-foreground tabular-nums">
-      {pXLabel(aggregate?.spec ?? null, av.curve_type)}{" "}
-      {(unitToMolarExponent(av.unit) - stats!.log_value_mean!).toFixed(2)} ±{" "}
-      {stats!.log_value_sd!.toFixed(2)}
-    </div>
-  ) : null;
+    stats.fold_range != null ? (
+      <div className="font-mono text-[10px] text-muted-foreground tabular-nums">
+        gmean {stats.geometric_mean.toPrecision(3)} {av.unit ?? "(unit unavailable)"} ·{" "}
+        {formatFoldRange(stats.fold_range)}
+      </div>
+    ) : null;
+  const factor = molarFactor(av.unit);
+  const pxLine =
+    showAggregateLines &&
+    stats?.log_value_mean != null &&
+    stats.log_value_sd != null &&
+    factor !== null ? (
+      <div className="font-mono text-[10px] text-muted-foreground tabular-nums">
+        {pXLabel(aggregate?.spec ?? null, av.curve_type)}{" "}
+        {(-Math.log10(factor) - stats.log_value_mean).toFixed(2)} ± {stats.log_value_sd.toFixed(2)}
+      </div>
+    ) : null;
 
   // Stack the headline + muted lines vertically only when there's something
   // to stack — single-run / non-scalar cells keep their original one-line
@@ -261,27 +196,9 @@ export function InterceptCell({ av, spec, isPrimary, mode }: InterceptCellProps)
       cellBody
     );
 
-  if (!hasDrillIn) {
-    return stackedBody;
-  }
-
-  // Multi-run drill-in via Popover (click-to-open; HoverCard isn't in
-  // this codebase). Trigger wraps the entire stacked body so clicking
-  // anywhere in the cell opens the per-run table.
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="cursor-pointer rounded p-0 text-left hover:bg-muted/30"
-          aria-label="Show run history"
-        >
-          {stackedBody}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-96 p-3" align="start">
-        <RunHistoryTooltip av={av} interceptKey={ik} unit={av.unit ?? "uM"} />
-      </PopoverContent>
-    </Popover>
+    <AssayEvidence av={av} interceptKey={ik} mode={mode}>
+      {stackedBody}
+    </AssayEvidence>
   );
 }

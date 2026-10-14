@@ -19,6 +19,7 @@ import type {
   PlateMapWellModel,
   ProtocolReferenceResponse,
   ProtocolResponse,
+  ProtocolSummaryResponse,
   ProtocolTargetRefResponse,
   ReadoutDataResponse,
   RefitDoseResponseCurveRequest,
@@ -389,6 +390,9 @@ export type TargetRef = TargetRefResponse;
 export type ProtocolTargetRef = ProtocolTargetRefResponse;
 
 export interface Protocol {
+  /** Enriched from the workspace run summary; undefined means not available yet. */
+  last_run_date?: ProtocolSummaryResponse["last_run_date"];
+  created_at?: ProtocolResponse["created_at"];
   id: string;
   workspace_id: string;
   name: string;

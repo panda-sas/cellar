@@ -183,7 +183,11 @@ export function StructureSection({ criterion, onChange }: StructureSectionProps)
 
   function handleModeChange(mode: SearchMode) {
     const m = modes.find((x) => x.name === mode);
-    onChange({ ...c, mode, threshold: m?.default_threshold ?? c.threshold ?? 0.7 });
+    onChange({
+      ...c,
+      mode,
+      threshold: m?.default_threshold ?? c.threshold ?? 0.7,
+    });
   }
 
   function handleInputChange(value: string) {
@@ -329,7 +333,16 @@ export function StructureSection({ criterion, onChange }: StructureSectionProps)
       {/* Structure preview */}
       {previewSmiles && previewSmiles.length >= 2 && (
         <div className="flex justify-center rounded border border-border bg-muted/30 p-2">
-          <StructureRenderer smiles={previewSmiles} width={120} height={90} />
+          <StructureRenderer
+            smiles={previewSmiles}
+            queryKind={
+              c.search_type === "substructure"
+                ? (c.query_kind ?? detectQueryKind(previewSmiles))
+                : "smiles"
+            }
+            width={120}
+            height={90}
+          />
         </div>
       )}
 

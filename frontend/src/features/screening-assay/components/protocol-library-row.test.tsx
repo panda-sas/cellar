@@ -58,3 +58,29 @@ describe("ProtocolLibraryRow menu", () => {
     expect(screen.queryByRole("button", { name: /Actions for/ })).not.toBeInTheDocument();
   });
 });
+
+describe("library dates", () => {
+  it("shows creation and run dates immediately", () => {
+    const { container } = render(
+      <ProtocolLibraryRow
+        protocol={{ ...protocol, created_at: "2025-03-14T12:00:00Z", last_run_date: "2026-10-09" }}
+      />,
+    );
+    expect(screen.getByText("Created")).toBeVisible();
+    expect(screen.getByText("Last run")).toBeVisible();
+    expect(container.querySelector('time[datetime="2026-10-09"]')).toHaveTextContent("Oct 9, 2026");
+    expect(container.querySelector('time[datetime="2025-03-14T12:00:00Z"]')).toHaveTextContent(
+      "Mar 14, 2025",
+    );
+  });
+  it("distinguishes loading or failed dates from protocols with no runs", () => {
+    const p = { ...protocol, last_run_date: null };
+    const { rerender } = render(<ProtocolLibraryRow protocol={p} datesLoading />);
+    expect(screen.getByText(/Loading…/)).toBeVisible();
+    expect(screen.queryByText(/No runs/)).not.toBeInTheDocument();
+    rerender(<ProtocolLibraryRow protocol={p} datesError />);
+    expect(screen.getByText(/Unavailable/)).toBeVisible();
+    rerender(<ProtocolLibraryRow protocol={p} />);
+    expect(screen.getByText(/No runs/)).toBeVisible();
+  });
+});

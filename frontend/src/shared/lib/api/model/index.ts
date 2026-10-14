@@ -1146,6 +1146,7 @@ export * from './protocolFormResponseProtocolType';
 export * from './protocolReferenceRequest';
 export * from './protocolReferenceResponse';
 export * from './protocolResponse';
+export * from './protocolResponseCreatedAt';
 export * from './protocolResponseCanDelete';
 export * from './protocolResponseCategory';
 export * from './protocolResponseCode';

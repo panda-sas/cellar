@@ -11,6 +11,9 @@ interface StructureThumbnailProps {
   size?: number;
   /** Additional CSS class */
   className?: string;
+  /** Query to highlight; SMILES queries must be parsed as molecules to perceive aromaticity. */
+  highlightQuery?: string;
+  queryKind?: "smiles" | "smarts";
 }
 
 /**
@@ -19,10 +22,17 @@ interface StructureThumbnailProps {
  * Uses SVG blob URLs to render. Memoized to avoid re-renders in lists.
  * SVG is produced by the trusted RDKit.js WASM library.
  */
-function StructureThumbnailInner({ smiles, size = 48, className }: StructureThumbnailProps) {
+function StructureThumbnailInner({
+  smiles,
+  size = 48,
+  className,
+  highlightQuery,
+  queryKind = "smarts",
+}: StructureThumbnailProps) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
   useEffect(() => {
+    setBlobUrl(null);
     let cancelled = false;
     let url: string | null = null;
 
@@ -39,16 +49,38 @@ function StructureThumbnailInner({ smiles, size = 48, className }: StructureThum
 
         // Render at 2x for HiDPI crispness, display at CSS size
         const renderSize = size * 2;
-        const drawOpts = JSON.stringify({
+        const drawOpts: Record<string, unknown> = {
           width: renderSize,
           height: renderSize,
           bondLineWidth: 2.0,
           minFontSize: 14,
           addAtomIndices: false,
           clearBackground: false, // transparent — the app background shows through
-        });
-        const svgStr = mol.get_svg_with_highlights(drawOpts);
-        mol.delete();
+        };
+        let svgStr: string;
+        try {
+          if (highlightQuery) {
+            // A generalized server match can have no literal match in the
+            // browser. In that case render the structure without highlights.
+            try {
+              const query =
+                queryKind === "smiles"
+                  ? rdkit.get_mol(highlightQuery)
+                  : rdkit.get_qmol(highlightQuery);
+              try {
+                if (query?.is_valid())
+                  Object.assign(drawOpts, JSON.parse(mol.get_substruct_match(query)));
+              } finally {
+                query?.delete();
+              }
+            } catch {
+              // An unsupported query must not hide an otherwise valid molecule.
+            }
+          }
+          svgStr = mol.get_svg_with_highlights(JSON.stringify(drawOpts));
+        } finally {
+          mol.delete();
+        }
 
         if (!cancelled) {
           const blob = new Blob([svgStr], { type: "image/svg+xml" });
@@ -64,7 +96,7 @@ function StructureThumbnailInner({ smiles, size = 48, className }: StructureThum
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [smiles, size]);
+  }, [smiles, size, highlightQuery, queryKind]);
 
   if (!blobUrl) {
     return (

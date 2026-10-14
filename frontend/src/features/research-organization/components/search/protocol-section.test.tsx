@@ -1,0 +1,78 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import type { ActivityCriterion } from "../../types";
+import { type ProtocolConjunction, ProtocolSection } from "./protocol-section";
+
+vi.mock("@/features/screening-assay/hooks/use-protocols", () => ({
+  useProtocol: () => ({ data: undefined }),
+  useProtocolSummaries: () => ({ data: [] }),
+}));
+vi.mock("./run-scope-picker", () => ({ RunScopePicker: () => null }));
+
+beforeAll(() => {
+  Element.prototype.scrollIntoView = vi.fn();
+  Element.prototype.hasPointerCapture = vi.fn(() => false);
+  Element.prototype.releasePointerCapture = vi.fn();
+});
+
+function Harness({ initialJoins }: { initialJoins: ProtocolConjunction[] }) {
+  const [criteria, setCriteria] = useState<ActivityCriterion[]>(
+    initialJoins.map((_, i) => ({ type: "activity", protocol_id: `p${i}`, where: [] })),
+  );
+  const [joins, setJoins] = useState(initialJoins);
+  return (
+    <>
+      <ProtocolSection
+        criteria={criteria}
+        conjunctions={joins}
+        protocols={[]}
+        projectIds={[]}
+        onChange={(next, nextJoins) => {
+          setCriteria(next);
+          setJoins(nextJoins);
+        }}
+      />
+      <output data-testid="joins">{JSON.stringify(joins)}</output>
+    </>
+  );
+}
+
+function chooseMode(label: string) {
+  fireEvent.click(screen.getByRole("combobox", { name: "Assay matching" }));
+  fireEvent.click(screen.getByRole("option", { name: label }));
+}
+
+describe("assay matching controls", () => {
+  it("switches to all assays and keeps new assays joined with AND", () => {
+    render(<Harness initialJoins={["or", "or"]} />);
+    chooseMode("Match all assays");
+    expect(screen.getByTestId("joins")).toHaveTextContent('["and","and"]');
+    fireEvent.click(screen.getByRole("button", { name: "Add assay" }));
+    expect(screen.getByTestId("joins")).toHaveTextContent('["and","and","and"]');
+    expect(screen.queryByRole("combobox", { name: "Join assay 2" })).not.toBeInTheDocument();
+  });
+
+  it("switches every assay to OR when choosing any assay", () => {
+    render(<Harness initialJoins={["and", "and", "and"]} />);
+    chooseMode("Match any assay");
+    expect(screen.getByTestId("joins")).toHaveTextContent('["or","or","or"]');
+  });
+
+  it("shows saved mixed logic without rewriting it", () => {
+    render(<Harness initialJoins={["and", "and", "or"]} />);
+    expect(screen.getByRole("combobox", { name: "Assay matching" })).toHaveTextContent(
+      "Custom logic",
+    );
+    expect(screen.getByRole("combobox", { name: "Join assay 2" })).toHaveTextContent("and");
+    expect(screen.getByRole("combobox", { name: "Join assay 3" })).toHaveTextContent("or");
+    expect(screen.getByTestId("joins")).toHaveTextContent('["and","and","or"]');
+  });
+
+  it("opens custom logic without changing a uniform search", () => {
+    render(<Harness initialJoins={["or", "or"]} />);
+    chooseMode("Custom logic");
+    expect(screen.getByRole("combobox", { name: "Join assay 2" })).toBeVisible();
+    expect(screen.getByTestId("joins")).toHaveTextContent('["or","or"]');
+  });
+});

@@ -34,7 +34,7 @@ const hasAnySelection = (s: FacetSelections) => Object.values(s).some((set) => s
 
 export function FacetSidebar({ model, selections, onToggle, onClear }: FacetSidebarProps) {
   return (
-    <aside className="w-60 shrink-0 space-y-4 pr-2">
+    <aside className="w-full shrink-0 space-y-4 pr-2 md:w-60">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">Filters</span>
         {hasAnySelection(selections) && (

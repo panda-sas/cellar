@@ -23,6 +23,7 @@ export interface AggregationControlProps {
    * fiddle with a control that does nothing.
    */
   disabled?: boolean;
+  busy?: boolean;
 }
 
 const DROPDOWN_TOOLTIP =
@@ -44,10 +45,10 @@ const DISABLED_TOOLTIP =
  * "Single run per compound" label that points the chemist at the runs
  * filter via tooltip.
  */
-export function AggregationControl({ mode, onChange, disabled }: AggregationControlProps) {
+export function AggregationControl({ mode, onChange, disabled, busy }: AggregationControlProps) {
   if (disabled) {
     return (
-      <div className="inline-flex items-center gap-1.5 text-xs">
+      <div className="inline-flex items-center gap-2 text-xs">
         <span className="text-muted-foreground italic" title={DISABLED_TOOLTIP}>
           Single run per compound
         </span>
@@ -55,11 +56,11 @@ export function AggregationControl({ mode, onChange, disabled }: AggregationCont
     );
   }
   return (
-    <div className="inline-flex items-center gap-1.5 text-xs">
-      <span className="text-muted-foreground">Summarize:</span>
-      <Select value={mode} onValueChange={(v) => onChange(v as AggregationMode)}>
+    <div className="inline-flex items-center gap-2 text-xs">
+      <span className="text-muted-foreground">Across runs</span>
+      <Select disabled={busy} value={mode} onValueChange={(v) => onChange(v as AggregationMode)}>
         <SelectTrigger
-          className="h-7 w-[10rem] text-xs"
+          className="h-8 w-[10rem] border-transparent bg-background text-xs shadow-none hover:border-border"
           aria-label="Aggregation mode"
           title={DROPDOWN_TOOLTIP}
         >

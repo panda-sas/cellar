@@ -2,30 +2,45 @@
 
 import type { Molecule } from "@/features/chemical-registration/types";
 import { LIFECYCLE_LABELS } from "@/features/chemical-registration/types";
-import type { CurveClass, CurveType, DoseResponseCurve } from "@/features/screening-assay/types";
+import type {
+  CurveClass,
+  CurveType,
+  DoseResponseCurve,
+  Protocol,
+} from "@/features/screening-assay/types";
 import { StructureThumbnail } from "@/shared/components/chemistry";
+import { EntityLink } from "@/shared/components/entity-link";
 import { StatusBadge } from "@/shared/components/status-badge";
 import { Button } from "@/shared/components/ui/button";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/shared/components/ui/sheet";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { Plot } from "@/shared/lib/plotly";
-import { DoseResponseChartView } from "@structflo/components/dose-response";
+import {
+  DoseResponseSummaryCard,
+  buildDoseResponsePlot,
+} from "@structflo/components/dose-response";
 import { ChevronDown, ChevronUp, ExternalLink, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMoleculeActivityDetail } from "../../hooks/use-molecule-activity-detail";
-import {
-  aggregateValue,
-  filterCurvesByRunScope,
-  pickRepresentative,
-} from "../../lib/compound-detail-selection";
+import { type ComparisonChannel, comparisonChannels } from "../../lib/comparison-channels";
+import { filterCurvesByRunScope, pickRepresentative } from "../../lib/compound-detail-selection";
 import {
   AGGREGATION_LABELS,
+  type AggregationMode,
   collectRunScopesByProtocol,
-  useAggregationMode,
 } from "../../lib/use-aggregation-mode";
-import type { CurveDetail, ProtocolCurveGroup, RunScope, SearchQuery } from "../../types";
+import { anyProtocolActivity } from "../../types";
+import type {
+  ActivityValue,
+  CurveDetail,
+  ProtocolCurveGroup,
+  RunScope,
+  SearchQuery,
+} from "../../types";
+import { ActiveInCell } from "./active-in-cell";
+import { AssayResult } from "./assay-result";
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────
 
@@ -35,7 +50,9 @@ import type { CurveDetail, ProtocolCurveGroup, RunScope, SearchQuery } from "../
 // ─── Props ────────────────────────────────────────────────────────────────
 
 interface CompoundDetailSheetProps {
-  molecule: Molecule | null;
+  molecule: (Molecule & { activity?: Record<string, ActivityValue> }) | null;
+  protocolColumns: string[];
+  protocols: Protocol[];
   visibleProtocolIds: string[];
   currentIndex: number;
   totalCount: number;
@@ -50,26 +67,13 @@ interface CompoundDetailSheetProps {
    * toolbar started saying "Single run per compound."
    */
   currentQuery: SearchQuery | null;
+  aggregationMode?: AggregationMode;
 }
 
-// ─── CurveDetail → DoseResponseCurve adapter ──────────────────────────────
-//
-// The search-detail panel and the protocol-runs page now share the same
-// `<DoseResponseChart />` (run-page is the canonical renderer; the search
-// detail simply passes `isInteractive={false}`). This adapter widens the
-// activity-detail wire shape (`CurveDetail`) to the chart's expected
-// `DoseResponseCurve` shape. Workspace-/molecule-id placeholders are fine —
-// the chart uses them only for query-key uniqueness and never reads them.
+// Adapt one source fit for the shared diagnostic chart. Reported endpoints
+// remain in the search snapshot above; no aggregation is recomputed here.
 
-function adaptCurve(
-  curve: CurveDetail,
-  protocolId: string,
-  molecule: Molecule,
-  overlay?: {
-    additional_curves?: Array<Record<string, unknown>> | null;
-    aggregate?: { marker_x: number; marker_label: string; unit: string } | null;
-  },
-): DoseResponseCurve {
+function adaptCurve(curve: CurveDetail, protocolId: string, molecule: Molecule): DoseResponseCurve {
   return {
     id: curve.curve_id,
     workspace_id: molecule.workspace_id,
@@ -101,138 +105,314 @@ function adaptCurve(
     excluded_points: curve.excluded_points ?? null,
     fit_quality_warnings: curve.fit_quality_warnings ?? [],
     intercept_values: curve.intercept_values ?? [],
-    additional_curves: overlay?.additional_curves ?? null,
-    aggregate: overlay?.aggregate ?? null,
+    additional_curves: null,
+    aggregate: null,
   };
 }
 
 // ─── ProtocolCard ─────────────────────────────────────────────────────────
 
+type ReportedMolecule = Molecule & { activity?: Record<string, ActivityValue> };
+
 interface ProtocolCardProps {
-  group: ProtocolCurveGroup;
-  molecule: Molecule;
-  /** Per-protocol `run_scope` from the search criterion; applied to the
-   *  drawer's full curve list so the chart matches the grid cell. */
+  group: Pick<ProtocolCurveGroup, "protocol_id" | "protocol_name" | "curves">;
+  molecule: ReportedMolecule;
   scope?: RunScope;
+  protocol?: Protocol;
+  channels?: ComparisonChannel[];
+  mode?: AggregationMode;
   defaultExpanded?: boolean;
+  loading?: boolean;
 }
 
-function ProtocolCard({ group, molecule, scope, defaultExpanded = true }: ProtocolCardProps) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
-  // Drawer honors the toolbar's aggregation mode so the chart matches
-  // the grid cell value end-to-end. Reads URL state directly via the
-  // shared hook — no prop drilling.
-  const { mode } = useAggregationMode();
+/** Identify the snapshot's representative fit without inferring it from an aggregate value. */
+export function findSearchSourceCurve(
+  curves: CurveDetail[],
+  av?: ActivityValue,
+): CurveDetail | null {
+  if (!av) return null;
+  if (av.curve_params) {
+    const params = av.curve_params;
+    const matching = curves.filter(
+      (curve) =>
+        curve.top === params.top &&
+        curve.bottom === params.bottom &&
+        curve.hill_slope === params.hill_slope &&
+        curve.r_squared === av.r_squared &&
+        curve.curve_class === params.curve_class &&
+        curve.confidence_interval_low === params.confidence_interval_low &&
+        curve.confidence_interval_high === params.confidence_interval_high,
+    );
+    if (matching.length === 1) return matching[0];
+  }
+  if (av.run_count === 1 && av.runs?.length === 1) {
+    return curves.find((curve) => curve.curve_id === av.runs?.[0].curve_id) ?? null;
+  }
+  return null;
+}
 
-  // Narrow to the in-scope curves BEFORE pickRepresentative / aggregateValue.
-  // Without this the drawer's chart picks from runs the search criterion
-  // excluded, contradicting the grid cell. Memoized so the chart doesn't
-  // re-derive on every render — only when scope or curves actually change.
+function ReportedEndpoints({
+  channels,
+  molecule,
+  mode,
+}: { channels: ComparisonChannel[]; molecule: ReportedMolecule; mode: AggregationMode }) {
+  if (!channels.length) return null;
+  return (
+    <section
+      aria-label="Reported search results"
+      className="min-w-0 space-y-2 rounded-lg bg-primary/5 p-3"
+    >
+      <div>
+        <h4 className="text-xs font-semibold">Reported endpoints</h4>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {AGGREGATION_LABELS[mode]} · Search values
+        </p>
+      </div>
+      <dl className="grid grid-cols-2 gap-3 lg:grid-cols-1">
+        {channels.map((channel) => (
+          <div key={channel.id} className="min-w-0 space-y-1 border-t border-primary/10 pt-2">
+            <dt className="text-xs font-medium">
+              {channel.label}
+              {channel.unit ? ` (${channel.unit})` : ""}
+            </dt>
+            <dd>
+              <AssayResult
+                av={molecule.activity?.[channel.activityKey]}
+                channel={channel}
+                mode={mode}
+              />
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        ND means no reportable potency.
+      </p>
+    </section>
+  );
+}
+
+/** Keep the source plot visible; only numerical fit diagnostics need expansion. */
+function SourceCurveCard({
+  curves,
+  protocolId,
+  readoutName,
+  molecule,
+  channels,
+  mode,
+}: {
+  curves: CurveDetail[];
+  protocolId: string;
+  readoutName: string;
+  molecule: ReportedMolecule;
+  channels: ComparisonChannel[];
+  mode: AggregationMode;
+}) {
+  const [curveId, setCurveId] = useState("");
+  const [inspecting, setInspecting] = useState(false);
+  const sorted = useMemo(
+    () => [...curves].sort((a, b) => (b.run_date ?? "").localeCompare(a.run_date ?? "")),
+    [curves],
+  );
+  const av = channels.length ? molecule.activity?.[channels[0].activityKey] : undefined;
+  const matched = findSearchSourceCurve(sorted, av);
+  const curve =
+    sorted.find((c) => c.curve_id === curveId) ?? matched ?? pickRepresentative(sorted, mode);
+  const adapted = useMemo(
+    () => (curve ? adaptCurve(curve, protocolId, molecule) : null),
+    [curve, protocolId, molecule],
+  );
+  const figure = useMemo(
+    () =>
+      adapted
+        ? buildDoseResponsePlot([adapted], { showCI: true, showMarker: true, showPlateaus: false })
+        : null,
+    [adapted],
+  );
+  if (!curve || !adapted || !figure) return null;
+  const aggregate = mode === "gmean" || mode === "mean";
+  const capturedTotal = (curve.raw_data?.length ?? 0) + (curve.excluded_points?.length ?? 0);
+  const excludedCount = curve.excluded_points?.length ?? 0;
+  return (
+    <div className="min-w-0 space-y-3">
+      <label className="flex flex-col gap-1 text-xs font-medium">
+        Source curve · {readoutName}
+        <select
+          className="h-9 w-full min-w-0 rounded-md border bg-background px-2 text-sm"
+          value={curve.curve_id}
+          onChange={(event) => {
+            setCurveId(event.target.value);
+            setInspecting(false);
+          }}
+        >
+          {sorted.map((c) => (
+            <option key={c.curve_id} value={c.curve_id}>
+              {c.run_date ?? "Date unavailable"} · {c.curve_type.toUpperCase()} ·{" "}
+              {c.curve_class ?? "Unclassified"} · {c.curve_id.slice(0, 8)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <EntityLink
+          type="run"
+          id={curve.run_id}
+          label={`Open source run · ${curve.run_date ?? "date unavailable"}`}
+          className="text-xs"
+        />
+        <span>
+          R² {curve.r_squared.toFixed(3)} · {curve.curve_class ?? "Unclassified"}
+        </span>
+      </div>
+      {channels.length > 0 && (
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          {aggregate
+            ? `Individual source fit shown. Reported ${AGGREGATION_LABELS[mode].toLowerCase()} summarizes in-scope results and may differ from this curve’s fitted value.`
+            : matched?.curve_id === curve.curve_id
+              ? "Source of the search’s representative curve. Reported endpoints retain the search’s qualifiers."
+              : curveId
+                ? "Selected source fit. Reported search values remain unchanged."
+                : "Source fit shown for reference; the reported source could not be uniquely identified."}
+        </p>
+      )}
+      {curve.fit_quality_warnings && curve.fit_quality_warnings.length > 0 && (
+        <p className="rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+          Fit quality:{" "}
+          {curve.fit_quality_warnings.map((warning) => warning.replaceAll("_", " ")).join(" · ")}
+        </p>
+      )}
+      <div
+        className={
+          channels.length ? "grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_11rem]" : "min-w-0"
+        }
+      >
+        {channels.length > 0 && (
+          <div className="order-2">
+            <ReportedEndpoints channels={channels} molecule={molecule} mode={mode} />
+          </div>
+        )}
+        <figure
+          aria-label={`Dose–response curve for ${readoutName}, source run ${curve.run_date ?? "date unavailable"}`}
+          className="min-w-0 overflow-hidden rounded-lg border bg-background"
+        >
+          <Plot
+            data={figure.traces}
+            layout={{
+              ...figure.layout,
+              height: 300,
+              autosize: true,
+              margin: { l: 55, r: 15, t: 25, b: 50 },
+            }}
+            config={{ ...figure.config, responsive: true }}
+            style={{ width: "100%", height: 300 }}
+            useResizeHandler
+          />
+        </figure>
+      </div>
+      <details
+        open={inspecting}
+        onToggle={(event) => setInspecting(event.currentTarget.open)}
+        className="rounded-lg border border-border/70 px-3 py-2"
+      >
+        <summary className="cursor-pointer text-xs font-medium">
+          Fit parameters &amp; diagnostics
+        </summary>
+        {inspecting && (
+          <div className="mt-3 space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Individual fit diagnostics. Fitted values can be shown even for inactive or bounded
+              curves; use reported search endpoints for potency and selectivity.
+            </p>
+            <DoseResponseSummaryCard
+              curve={adapted}
+              inFitCount={Math.max(0, capturedTotal - excludedCount)}
+              capturedTotal={capturedTotal}
+              excludedCount={excludedCount}
+            />
+          </div>
+        )}
+      </details>
+    </div>
+  );
+}
+
+function ProtocolCard({
+  group,
+  molecule,
+  scope,
+  protocol,
+  channels = [],
+  mode = "latest",
+  defaultExpanded = true,
+  loading = false,
+}: ProtocolCardProps) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const inScopeCurves = useMemo(
     () => filterCurvesByRunScope(group.curves, scope),
     [group.curves, scope],
   );
-
-  const { adaptedCurve, repCurve, aggValue } = useMemo(() => {
-    const rep = pickRepresentative(inScopeCurves, mode);
-    if (!rep) return { adaptedCurve: null, repCurve: null, aggValue: null };
-
-    // For aggregate modes, build the overlay (additional contributors +
-    // amber marker) so the chart draws the same treatment as the grid
-    // cell's sparkline (Step 3 of the multi-run work). Non-aggregate modes
-    // get a plain rep-only chart.
-    let agg: number | null = null;
-    let overlay: Parameters<typeof adaptCurve>[3] | undefined;
-    if (mode === "gmean" || mode === "mean") {
-      agg = aggregateValue(inScopeCurves, mode);
-      if (agg !== null) {
-        const additional = inScopeCurves
-          .filter((c) => c.curve_id !== rep.curve_id)
-          .map((c) => ({
-            fitted_value: c.fitted_value,
-            top: c.top,
-            bottom: c.bottom,
-            hill_slope: c.hill_slope,
-            r_squared: c.r_squared,
-            curve_class: c.curve_class,
-            raw_data: c.raw_data,
-            intercept_values: c.intercept_values,
-            curve_type: c.curve_type,
-            run_date: c.run_date ?? "",
-            run_id: c.run_id,
-          }));
-        overlay = {
-          additional_curves: additional,
-          aggregate: {
-            marker_x: agg,
-            marker_label: mode === "gmean" ? "gmean" : "mean",
-            unit: rep.fitted_unit,
-          },
-        };
-      }
+  const readouts = useMemo(() => {
+    const map = new Map<string, CurveDetail[]>();
+    for (const curve of inScopeCurves) {
+      const curves = map.get(curve.readout_definition_id) ?? [];
+      curves.push(curve);
+      map.set(curve.readout_definition_id, curves);
     }
-    return {
-      adaptedCurve: adaptCurve(rep, group.protocol_id, molecule, overlay),
-      repCurve: rep,
-      aggValue: agg,
-    };
-  }, [inScopeCurves, group.protocol_id, molecule, mode]);
-
-  if (!repCurve || !adaptedCurve) return null;
-
-  // Header subtext describing what's drawn. The "in scope" prefix kicks in
-  // whenever the search criterion's run_scope actually narrowed the
-  // candidate list, so the chemist can see at a glance that the drawer is
-  // honoring the same runs filter as the grid cell.
-  const totalCurves = group.curves.length;
-  const nScope = inScopeCurves.length;
-  const scoped = scope !== undefined && nScope < totalCurves;
-  const headerText = (() => {
-    if (nScope === 0) return "No runs in scope";
-    if (nScope === 1) {
-      const d = repCurve.run_date ?? "—";
-      return scoped ? `1 run in scope — Run ${d}` : `Run ${d}`;
-    }
-    const noun = scoped ? `${nScope} of ${totalCurves} runs in scope` : `${nScope} runs`;
-    if (mode === "best_r2") {
-      return `${noun} — showing best (R² = ${repCurve.r_squared.toFixed(3)})`;
-    }
-    if (mode === "latest") {
-      const d = repCurve.run_date ?? "—";
-      return `${noun} — showing latest run (${d})`;
-    }
-    if (aggValue !== null) {
-      const label = AGGREGATION_LABELS[mode].toLowerCase();
-      return `${noun} — ${label} = ${aggValue.toPrecision(3)} ${repCurve.fitted_unit}`;
-    }
-    return `${noun} — ${AGGREGATION_LABELS[mode].toLowerCase()}`;
-  })();
-
+    return [...map.entries()].sort(
+      ([a], [b]) =>
+        Number(channels.some((c) => c.readoutId === b)) -
+        Number(channels.some((c) => c.readoutId === a)),
+    );
+  }, [inScopeCurves, channels]);
+  const unmatched = channels.filter(
+    (channel) => !channel.doseResponse || !readouts.some(([id]) => id === channel.readoutId),
+  );
   return (
-    <div className="rounded-lg border border-border bg-card">
+    <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-card">
       <button
         type="button"
-        className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/30"
-        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        className="flex w-full items-center justify-between gap-3 bg-primary/5 px-4 py-3 text-left hover:bg-primary/10"
+        onClick={() => setExpanded((value) => !value)}
       >
-        <div className="min-w-0 space-y-0.5">
-          <p className="truncate text-sm font-medium">{group.protocol_name}</p>
-          <p className="text-xs text-muted-foreground">{repCurve.curve_type}</p>
+        <div className="min-w-0">
+          <p className="break-words text-sm font-semibold">{group.protocol_name}</p>
+          <p className="text-xs text-muted-foreground">
+            {loading
+              ? "Loading source curves…"
+              : `${inScopeCurves.length} source fit${inScopeCurves.length === 1 ? "" : "s"} in scope`}
+          </p>
         </div>
         {expanded ? (
-          <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <ChevronUp className="size-4 shrink-0" />
         ) : (
-          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <ChevronDown className="size-4 shrink-0" />
         )}
       </button>
-
       {expanded && (
-        // `min-w-0` is the standard fix for flex children that would
-        // otherwise refuse to shrink below their content width — without it
-        // the side-panel chart pushes past the sheet's right edge.
-        <div className="min-w-0 space-y-3 border-t border-border px-4 py-3">
-          {headerText && <p className="text-xs text-muted-foreground">{headerText}</p>}
-          <DoseResponseChartView curves={[adaptedCurve]} plot={Plot} />
+        <div className="min-w-0 space-y-4 p-3 sm:p-4">
+          <ReportedEndpoints channels={unmatched} molecule={molecule} mode={mode} />
+          {readouts.length === 0 && !loading && (
+            <p className="text-xs text-muted-foreground">
+              No source curves available in this search’s run scope.
+            </p>
+          )}
+          {readouts.map(([readoutId, curves]) => (
+            <SourceCurveCard
+              key={readoutId}
+              curves={curves}
+              protocolId={group.protocol_id}
+              readoutName={
+                protocol?.readout_definitions?.find((r) => r.id === readoutId)?.name ??
+                curves[0].curve_type.toUpperCase()
+              }
+              molecule={molecule}
+              channels={channels.filter(
+                (channel) => channel.doseResponse && channel.readoutId === readoutId,
+              )}
+              mode={mode}
+            />
+          ))}
         </div>
       )}
     </div>
@@ -244,15 +424,23 @@ function ProtocolCard({ group, molecule, scope, defaultExpanded = true }: Protoc
 export function CompoundDetailSheet({
   molecule,
   visibleProtocolIds,
+  protocolColumns,
+  protocols,
   currentIndex,
   totalCount,
   onNavigate,
   onOpenChange,
   currentQuery,
+  aggregationMode = "latest",
 }: CompoundDetailSheetProps) {
   const [othersExpanded, setOthersExpanded] = useState(false);
 
-  const { data: activityDetail, isLoading } = useMoleculeActivityDetail(molecule?.id ?? null);
+  const {
+    data: activityDetail,
+    isLoading,
+    isError,
+    refetch,
+  } = useMoleculeActivityDetail(molecule?.id ?? null);
 
   // Per-protocol run_scope from the executed search. Derived once per query
   // change; ProtocolCard reads its own entry to filter the curves it draws.
@@ -261,15 +449,17 @@ export function CompoundDetailSheet({
     [currentQuery],
   );
 
-  // Reset expanded state when molecule changes
-  useEffect(() => {
-    setOthersExpanded(false);
-  }, [molecule?.id]);
-
   // Keyboard navigation: Arrow Up/Down to move between results
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (!molecule) return;
+      if (!molecule || e.defaultPrevented) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target?.closest(
+          "input, select, textarea, button, a, summary, [role='combobox'], [role='listbox'], [data-slot='popover-content'], [contenteditable='true']",
+        )
+      )
+        return;
 
       if (e.key === "ArrowUp" || e.key === "ArrowDown") {
         e.preventDefault();
@@ -304,6 +494,28 @@ export function CompoundDetailSheet({
     return { selected: sel, others: oth };
   }, [activityDetail, visibleProtocolIds]);
 
+  const channels = useMemo(
+    () => comparisonChannels(protocolColumns, protocols),
+    [protocolColumns, protocols],
+  );
+  const reportGroups = useMemo(() => {
+    const ids = [
+      ...new Set([
+        ...channels.map((channel) => channel.protocolId),
+        ...selected.map((group) => group.protocol_id),
+      ]),
+    ];
+    return ids.map((id) => ({
+      group: selected.find((group) => group.protocol_id === id) ?? {
+        protocol_id: id,
+        protocol_name:
+          channels.find((channel) => channel.protocolId === id)?.protocolName ?? "Assay",
+        curves: [],
+      },
+      channels: channels.filter((channel) => channel.protocolId === id),
+    }));
+  }, [channels, selected]);
+  const crossAssay = molecule ? anyProtocolActivity(molecule) : undefined;
   const smiles = molecule?.structure?.smiles;
   const descriptors = molecule?.descriptors;
 
@@ -312,7 +524,7 @@ export function CompoundDetailSheet({
       <SheetContent
         side="right"
         showCloseButton={false}
-        className="w-[60vw] max-w-[900px] min-w-[500px] gap-0 p-0 sm:max-w-none"
+        className="w-full gap-0 p-0 sm:w-[70vw] sm:max-w-[900px]"
       >
         {/* Accessible title (visually hidden) */}
         <SheetTitle className="sr-only">
@@ -325,9 +537,9 @@ export function CompoundDetailSheet({
         {molecule && (
           <div className="flex h-full flex-col">
             {/* ── Header ── */}
-            <div className="flex items-start gap-4 border-b border-border px-5 py-4">
-              {smiles && <StructureThumbnail smiles={smiles} size={80} />}
-              <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="flex items-start gap-3 border-b border-border px-4 py-3">
+              {smiles && <StructureThumbnail smiles={smiles} size={64} />}
+              <div className="min-w-0 flex-1 space-y-1">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-base font-semibold">
@@ -341,17 +553,15 @@ export function CompoundDetailSheet({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 shrink-0"
+                    aria-label="Close compound detail"
                     onClick={() => onOpenChange(false)}
                   >
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
 
-                {molecule.molecular_formula && (
-                  <p className="text-xs text-muted-foreground">{molecule.molecular_formula}</p>
-                )}
-
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  {molecule.molecular_formula && <span>{molecule.molecular_formula}</span>}
                   {descriptors?.molecular_weight != null && (
                     <span>
                       MW{" "}
@@ -366,12 +576,11 @@ export function CompoundDetailSheet({
                       <span className="font-mono tabular-nums">{descriptors.logp.toFixed(2)}</span>
                     </span>
                   )}
+                  <StatusBadge
+                    status={molecule.lifecycle_stage}
+                    label={LIFECYCLE_LABELS[molecule.lifecycle_stage]}
+                  />
                 </div>
-
-                <StatusBadge
-                  status={molecule.lifecycle_stage}
-                  label={LIFECYCLE_LABELS[molecule.lifecycle_stage]}
-                />
               </div>
             </div>
 
@@ -383,6 +592,7 @@ export function CompoundDetailSheet({
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7"
+                    aria-label="Previous compound"
                     disabled={currentIndex === 0}
                     onClick={() => onNavigate("prev")}
                   >
@@ -395,6 +605,7 @@ export function CompoundDetailSheet({
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7"
+                    aria-label="Next compound"
                     disabled={currentIndex === totalCount - 1}
                     onClick={() => onNavigate("next")}
                   >
@@ -422,7 +633,37 @@ export function CompoundDetailSheet({
                 and no scrollbar ever appears — the chart looks clipped
                 at the screen edge. */}
             <ScrollArea className="min-h-0 flex-1">
-              <div className="space-y-5 px-5 py-4">
+              <div className="space-y-4 px-3 py-3 sm:px-4">
+                {crossAssay && (
+                  <section aria-label="Reported search results" className="rounded-lg border p-3">
+                    <ActiveInCell value={crossAssay} />
+                  </section>
+                )}
+                {reportGroups.map(({ group, channels: groupChannels }) => (
+                  <ProtocolCard
+                    key={group.protocol_id}
+                    group={group}
+                    molecule={molecule}
+                    protocol={protocols.find((p) => p.id === group.protocol_id)}
+                    scope={runScopesByProtocol.get(group.protocol_id)}
+                    channels={groupChannels}
+                    mode={aggregationMode}
+                    loading={isLoading}
+                  />
+                ))}
+                {isError && (
+                  <div role="alert" className="rounded-lg border p-4 text-sm">
+                    Source curves could not be loaded. Reported search results remain available.
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="ml-2"
+                      onClick={() => void refetch()}
+                    >
+                      Retry source curves
+                    </Button>
+                  </div>
+                )}
                 {/* Loading state */}
                 {isLoading && (
                   <div className="space-y-4">
@@ -433,30 +674,13 @@ export function CompoundDetailSheet({
                 )}
 
                 {/* No activity data */}
-                {!isLoading && (!activityDetail || activityDetail.protocols.length === 0) && (
-                  <p className="py-8 text-center text-sm text-muted-foreground">
-                    No dose-response data available for this compound.
-                  </p>
-                )}
-
-                {/* Selected protocol curves */}
-                {!isLoading && selected.length > 0 && (
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Selected Protocols
-                    </h4>
-                    {molecule &&
-                      selected.map((group) => (
-                        <ProtocolCard
-                          key={group.protocol_id}
-                          group={group}
-                          molecule={molecule}
-                          scope={runScopesByProtocol.get(group.protocol_id)}
-                          defaultExpanded
-                        />
-                      ))}
-                  </div>
-                )}
+                {!isLoading &&
+                  !isError &&
+                  (!activityDetail || activityDetail.protocols.length === 0) && (
+                    <p className="py-8 text-center text-sm text-muted-foreground">
+                      No dose-response data available for this compound.
+                    </p>
+                  )}
 
                 {/* Other protocols (collapsible) */}
                 {!isLoading && others.length > 0 && (
@@ -481,6 +705,7 @@ export function CompoundDetailSheet({
                       molecule &&
                       others.map((group) => (
                         <ProtocolCard
+                          protocol={protocols.find((p) => p.id === group.protocol_id)}
                           key={group.protocol_id}
                           group={group}
                           molecule={molecule}

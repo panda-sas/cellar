@@ -1,104 +1,179 @@
 "use client";
 
-/**
- * Two sibling render-only fragments composing the search-page toolbar:
- *
- *   - {@link ResultsToolbarLeft}: result count + selection status (rows are
- *     picked with the grid's checkbox column; its header box selects all).
- *   - {@link ResultsToolbarActions}: action buttons (Add to Collection /
- *     Customize Report / Save Search).
- *
- * Both are slotted into the underlying DataGrid's toolbar via its
- * `toolbarLeft` and `toolbarActions` props so they share the same row as
- * the Export dropdown — no separate page-level toolbar row, no extra
- * vertical space for Export.
- */
-
 import { Button } from "@/shared/components/ui/button";
-import { BookmarkPlus, ListPlus, Settings2 } from "lucide-react";
+import { cn } from "@/shared/lib/utils";
+import {
+  BookmarkPlus,
+  ChartNoAxesCombined,
+  Columns2,
+  FlaskConical,
+  ListPlus,
+  Rows3,
+  Settings2,
+} from "lucide-react";
+import { useReportConfig } from "../../hooks/use-report-config";
 import { useAggregationMode } from "../../lib/use-aggregation-mode";
+import type { SearchDisplayPreset } from "../../types";
 import { AggregationControl } from "./aggregation-control";
 
-interface ResultsToolbarLeftProps {
+export function ResultsToolbarLeft({
+  resultCount,
+  selectedCount,
+}: {
   resultCount: number | null;
   selectedCount: number;
-}
-
-export function ResultsToolbarLeft({ resultCount, selectedCount }: ResultsToolbarLeftProps) {
+}) {
   return (
     <>
-      <span className="text-sm text-muted-foreground">
-        <strong className="text-foreground">{resultCount?.toLocaleString() ?? "–"}</strong> results
-      </span>
+      <h2 className="text-base font-semibold tracking-tight">
+        {resultCount?.toLocaleString() ?? "–"}{" "}
+        <span className="font-normal text-muted-foreground">compounds</span>
+      </h2>
       {selectedCount > 0 && (
-        <span className="text-sm text-primary font-medium">· {selectedCount} selected</span>
+        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+          {selectedCount} selected
+        </span>
       )}
     </>
   );
 }
 
-interface ResultsToolbarActionsProps {
-  selectedCount: number;
-  onAddToCollection: () => void;
-  onCustomizeReport: () => void;
+export function ResultsToolbarActions({
+  onSaveSearch,
+  busy,
+}: {
   onSaveSearch: () => void;
-  /**
-   * True when the active query has narrowed every activity criterion to one
-   * run, so the aggregation dropdown is a no-op on every cell. The page
-   * computes this from `currentQuery.criteria` via `computeScopeForcesSingleRun`
-   * and forwards it down so the toolbar can swap the dropdown for a muted
-   * static label.
-   */
-  scopeForcesSingleRun?: boolean;
+  busy?: boolean;
+}) {
+  return (
+    <Button variant="ghost" size="sm" disabled={busy} onClick={onSaveSearch}>
+      <BookmarkPlus /> Save search
+    </Button>
+  );
 }
 
-export function ResultsToolbarActions({
-  selectedCount,
-  onAddToCollection,
+export function ResultsViewControls({
   onCustomizeReport,
-  onSaveSearch,
   scopeForcesSingleRun,
-}: ResultsToolbarActionsProps) {
-  // URL-synced aggregation mode lives in the toolbar — the page reads the
-  // same hook independently for the search body, so we don't have to
-  // plumb mode/setMode through props. The hook is a thin URL-state
-  // wrapper (no remote calls), so duplicate subscriptions are cheap.
-  const { mode: aggregationMode, setMode: setAggregationMode } = useAggregationMode();
+  busy,
+  hasCurves,
+  hasAssays,
+}: {
+  onCustomizeReport: () => void;
+  scopeForcesSingleRun?: boolean;
+  busy?: boolean;
+  hasCurves?: boolean;
+  hasAssays: boolean;
+}) {
+  const { mode, setMode } = useAggregationMode();
+  const { config, updateConfig } = useReportConfig();
   return (
     <>
-      <AggregationControl
-        mode={aggregationMode}
-        onChange={setAggregationMode}
-        disabled={scopeForcesSingleRun}
-      />
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-8 text-sm gap-1.5"
-        disabled={selectedCount === 0}
-        onClick={onAddToCollection}
+      <fieldset
+        aria-label="Results display"
+        className="inline-flex shrink-0 rounded-lg bg-muted/70 p-1"
       >
-        <ListPlus className="h-3.5 w-3.5" />
-        Add to Collection
-      </Button>
+        {(["compact", "structure", "curves"] as SearchDisplayPreset[]).map((preset) => {
+          const active = (config.displayPreset ?? "curves") === preset;
+          const Icon =
+            preset === "compact"
+              ? Rows3
+              : preset === "structure"
+                ? FlaskConical
+                : ChartNoAxesCombined;
+          return (
+            <Button
+              key={preset}
+              size="sm"
+              variant="ghost"
+              className={cn(
+                "h-7 gap-1.5 px-2 text-xs font-medium text-foreground/70",
+                active && "bg-background text-foreground shadow-sm hover:bg-background",
+              )}
+              aria-pressed={active}
+              disabled={preset === "curves" && !hasCurves}
+              title={
+                preset === "curves" && !hasCurves
+                  ? "Add a dose-response assay to show curves"
+                  : undefined
+              }
+              onClick={() =>
+                updateConfig({
+                  displayPreset: preset,
+                  imageSize: preset === "compact" ? "small" : "medium",
+                })
+              }
+            >
+              <Icon className="size-3.5" />
+              {preset === "compact" ? "Compact" : preset === "structure" ? "Structure" : "Curves"}
+            </Button>
+          );
+        })}
+      </fieldset>
+      {hasAssays && (
+        <AggregationControl
+          mode={mode}
+          onChange={setMode}
+          disabled={scopeForcesSingleRun}
+          busy={busy}
+        />
+      )}
       <Button
-        variant="outline"
+        variant="ghost"
         size="sm"
-        className="h-8 text-sm gap-1.5"
+        className="text-xs font-medium"
+        disabled={busy}
         onClick={onCustomizeReport}
       >
-        <Settings2 className="h-3.5 w-3.5" />
-        Customize Report
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-8 text-sm gap-1.5 border-primary/20 bg-primary/10 text-primary hover:bg-primary/20"
-        onClick={onSaveSearch}
-      >
-        <BookmarkPlus className="h-3.5 w-3.5" />
-        Save Search
+        <Settings2 className="size-3.5" /> Columns & display
       </Button>
     </>
+  );
+}
+
+export function ResultsSelectionActions({
+  selectedCount,
+  onCompare,
+  onAddToCollection,
+  onClearSelection,
+  busy,
+}: {
+  selectedCount: number;
+  onCompare: () => void;
+  onAddToCollection: () => void;
+  onClearSelection: () => void;
+  busy?: boolean;
+}) {
+  if (selectedCount === 0) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        Select compounds to compare or add to a collection
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-lg bg-primary/5 px-3 py-2">
+      <span className="mr-1 text-xs font-medium text-primary">{selectedCount} selected</span>
+      <Button
+        variant="default"
+        size="sm"
+        disabled={busy || selectedCount < 2 || selectedCount > 4}
+        onClick={onCompare}
+        title="Select 2–4 compounds using the row checkboxes"
+      >
+        <Columns2 /> Compare ({selectedCount})
+      </Button>
+      <Button variant="outline" size="sm" disabled={busy} onClick={onAddToCollection}>
+        <ListPlus /> Add to collection
+      </Button>
+      {(selectedCount < 2 || selectedCount > 4) && (
+        <span className="text-xs text-muted-foreground">
+          {selectedCount < 2 ? "Select one more to compare" : "Select up to 4 to compare"}
+        </span>
+      )}
+      <Button variant="ghost" size="sm" className="ml-auto text-xs" onClick={onClearSelection}>
+        Clear selection
+      </Button>
+    </div>
   );
 }

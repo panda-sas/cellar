@@ -256,7 +256,9 @@ export function buildFacetModel(
           ? { value, count, label: short, fullLabel: full }
           : { value, count, label: full };
       })
-      .sort((x, y) => y.count - x.count || x.label.localeCompare(y.label));
+      .sort((x, y) =>
+        x.label.localeCompare(y.label, undefined, { numeric: true, sensitivity: "base" }),
+      );
     out.push({ dimension, label, values });
   }
   return out;

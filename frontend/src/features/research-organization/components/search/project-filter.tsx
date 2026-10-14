@@ -66,6 +66,9 @@ export function ProjectFilter({ selectedIds, onChange }: ProjectFilterProps) {
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
+      {selectedIds.length === 0 && (
+        <span className="text-sm text-muted-foreground">All projects</span>
+      )}
       {/* Selected project chips */}
       {selectedProjects.map((project) => {
         const projectStats = stats?.[project.id];

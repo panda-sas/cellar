@@ -250,6 +250,7 @@ class ProtocolResponse(BaseModel):
     protocol_version: int
     parent_protocol_id: uuid.UUID | None = None
     status: str
+    created_at: datetime | None = None
     created_by: uuid.UUID
     # Canonical dose unit for all wells + IC50 fits of runs of this protocol.
     dose_unit: str
@@ -313,6 +314,7 @@ class ProtocolResponse(BaseModel):
             protocol_version=p.protocol_version,
             parent_protocol_id=p.parent_protocol_id,
             status=p.status.value,
+            created_at=p.created_at,
             created_by=p.created_by,
             dose_unit=p.dose_unit.value,
             pos_control_signal=p.pos_control_signal.value,

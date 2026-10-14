@@ -4,6 +4,7 @@ import { useProjects } from "@/features/research-organization/hooks/use-projects
 import { TagFilter, type TagFilterValue } from "@/features/tagging/components/tag-filter";
 import { ErrorState } from "@/shared/components/empty-state";
 import { SearchInput } from "@/shared/components/search-input";
+import { Button } from "@/shared/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -12,11 +13,11 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
-import { LayoutGrid, ListTree } from "lucide-react";
+import { ListTree, Table2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useProtocols } from "../hooks/use-protocols";
-import { matchesProtocolText } from "../lib/protocol-facets";
-import type { Protocol } from "../types";
+import { useProtocolSummaries, useProtocols } from "../hooks/use-protocols";
+import { type FacetSelections, filterProtocols, matchesProtocolText } from "../lib/protocol-facets";
+import { PROTOCOL_STATUS_LABELS, PROTOCOL_TYPE_LABELS, type Protocol } from "../types";
 import { ProtocolGrid } from "./protocol-grid";
 import { ProtocolLibraryView } from "./protocol-library-view";
 
@@ -26,7 +27,6 @@ type View = "grid" | "library";
 
 interface ProtocolBrowserProps {
   onSelect?: (protocolId: string) => void;
-  /** Library rows offer "New protocol from this" when given (editors and up). */
   onNewFrom?: (protocol: Protocol) => void;
 }
 
@@ -35,97 +35,201 @@ export function ProtocolBrowser({ onSelect, onNewFrom }: ProtocolBrowserProps) {
   const [projectFilter, setProjectFilter] = useState<string>(ALL_PROJECTS);
   const [tagFilter, setTagFilter] = useState<TagFilterValue>({ tagIds: [], tagLogic: "any" });
   const [view, setView] = useState<View>("grid");
+  // Shared across views so switching presentation never silently changes the scope.
+  const [selections, setSelections] = useState<FacetSelections>({});
 
-  // Restore persisted view after mount (avoids SSR/localStorage hydration mismatch).
   useEffect(() => {
-    const saved = localStorage.getItem(VIEW_KEY);
-    if (saved === "grid" || saved === "library") setView(saved);
+    try {
+      const saved = localStorage.getItem(VIEW_KEY);
+      if (saved === "grid" || saved === "library") setView(saved);
+    } catch {
+      /* The view still works when storage is unavailable. */
+    }
   }, []);
 
   const onViewChange = (v: string) => {
-    const next = v as View;
-    setView(next);
-    localStorage.setItem(VIEW_KEY, next);
+    if (v !== "grid" && v !== "library") return;
+    setView(v);
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      /* Session-only preference. */
+    }
   };
 
   const { data: projects } = useProjects();
-  const effectiveProjectId = projectFilter !== ALL_PROJECTS ? projectFilter : undefined;
   const {
     data: protocols,
     isLoading,
     error,
-  } = useProtocols(effectiveProjectId, {
+  } = useProtocols(projectFilter !== ALL_PROJECTS ? projectFilter : undefined, {
     tags: tagFilter.tagIds,
     tagLogic: tagFilter.tagLogic,
   });
-
-  // Derive text-filtered source for library view; memoized over loaded protocols + search.
-  const librarySource = useMemo(
-    () => (protocols ?? []).filter((p) => matchesProtocolText(p, search)),
-    [protocols, search],
+  const { data: summaries, isPending: datesLoading, isError: datesError } = useProtocolSummaries();
+  const datedProtocols = useMemo(() => {
+    const dates = new Map(summaries?.map((p) => [p.id, p.last_run_date]));
+    return protocols?.map((p) => ({ ...p, last_run_date: dates.get(p.id) }));
+  }, [protocols, summaries]);
+  const searchSource = useMemo(
+    () => (datedProtocols ?? []).filter((p) => matchesProtocolText(p, search)),
+    [datedProtocols, search],
   );
+  const filtered = useMemo(
+    () => filterProtocols(searchSource, selections),
+    [searchSource, selections],
+  );
+  const hasFilters =
+    !!search.trim() ||
+    projectFilter !== ALL_PROJECTS ||
+    tagFilter.tagIds.length > 0 ||
+    Object.values(selections).some((s) => s && s.size > 0);
+  const extraFacetCount = Object.entries(selections).filter(
+    ([key, values]) => key !== "type" && key !== "status" && values && values.size > 0,
+  ).length;
+  const clearFilters = () => {
+    setSearch("");
+    setProjectFilter(ALL_PROJECTS);
+    setTagFilter({ tagIds: [], tagLogic: "any" });
+    setSelections({});
+  };
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder="Search protocols..."
-          className="max-w-sm flex-1"
-        />
-        <TagFilter value={tagFilter} onChange={setTagFilter} />
-        {projects && projects.length > 0 && (
-          <>
-            <span className="shrink-0 text-sm text-muted-foreground">Project:</span>
+    <div className="min-w-0 overflow-hidden rounded-xl border bg-card shadow-sm">
+      <div className="space-y-3 p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Search names, codes, targets…"
+            className="min-w-48 flex-1"
+          />
+          <Tabs value={view} onValueChange={onViewChange}>
+            <TabsList aria-label="Protocol view">
+              <TabsTrigger value="grid">
+                <Table2 className="mr-1.5 h-4 w-4" />
+                Table
+              </TabsTrigger>
+              <TabsTrigger value="library">
+                <ListTree className="mr-1.5 h-4 w-4" />
+                Library
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {(["status", "type"] as const).map((dim) => {
+            const selected = selections[dim];
+            const value = selected?.size
+              ? selected.size === 1
+                ? [...selected][0]
+                : "__multiple__"
+              : "__all__";
+            const labels = dim === "status" ? PROTOCOL_STATUS_LABELS : PROTOCOL_TYPE_LABELS;
+            return (
+              <Select
+                key={dim}
+                value={value}
+                onValueChange={(v) =>
+                  setSelections((prev) => ({ ...prev, [dim]: new Set(v === "__all__" ? [] : [v]) }))
+                }
+              >
+                <SelectTrigger
+                  aria-label={dim === "status" ? "Protocol status" : "Assay type"}
+                  className={
+                    dim === "status" ? "w-[calc(50%-4px)] sm:w-36" : "w-[calc(50%-4px)] sm:w-44"
+                  }
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">
+                    {dim === "status" ? "All statuses" : "All assay types"}
+                  </SelectItem>
+                  {value === "__multiple__" && (
+                    <SelectItem value="__multiple__" disabled>
+                      Multiple {dim === "status" ? "statuses" : "types"}
+                    </SelectItem>
+                  )}
+                  {Object.entries(labels)
+                    .sort((a, b) => a[1].localeCompare(b[1]))
+                    .map(([key, label]) => (
+                      <SelectItem key={key} value={key}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            );
+          })}
+          {projects && projects.length > 0 && (
             <Select value={projectFilter} onValueChange={setProjectFilter}>
-              <SelectTrigger className="w-[220px]">
+              <SelectTrigger aria-label="Project" className="w-48">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL_PROJECTS}>All projects</SelectItem>
-                {projects.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
+                {[...projects]
+                  .sort((a, b) =>
+                    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }),
+                  )
+                  .map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
-          </>
-        )}
-        <Tabs value={view} onValueChange={onViewChange} className="ml-auto">
-          <TabsList>
-            <TabsTrigger value="grid" aria-label="Grid view">
-              <LayoutGrid className="h-4 w-4" />
-            </TabsTrigger>
-            <TabsTrigger value="library" aria-label="Library view">
-              <ListTree className="h-4 w-4" />
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+          )}
+          <TagFilter value={tagFilter} onChange={setTagFilter} alphabetical />
+          {extraFacetCount > 0 && (
+            <Button size="sm" variant="secondary" onClick={() => onViewChange("library")}>
+              {extraFacetCount} library {extraFacetCount === 1 ? "filter" : "filters"}
+            </Button>
+          )}
+          {hasFilters && (
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
+              Clear filters
+            </Button>
+          )}
+          <output className="ml-auto text-sm text-muted-foreground">
+            {error ? (
+              "Unable to load"
+            ) : isLoading ? (
+              "Loading protocols…"
+            ) : (
+              <>
+                <strong className="font-semibold text-foreground">{filtered.length}</strong>{" "}
+                {hasFilters ? "matching " : ""}
+                {filtered.length === 1 ? "protocol" : "protocols"}
+              </>
+            )}
+          </output>
+        </div>
       </div>
-
       {error ? (
-        <ErrorState
-          message="Failed to load protocols. Is the backend running?"
-          details={error.message}
-        />
+        <ErrorState message="Could not load protocols. Please try again." />
       ) : view === "grid" ? (
         <ProtocolGrid
-          protocols={protocols}
+          protocols={filtered}
           isLoading={isLoading}
-          error={error}
-          quickFilterText={search}
           onSelect={onSelect}
+          isFiltered={hasFilters}
+          datesLoading={datesLoading}
+          datesError={datesError}
         />
       ) : isLoading || !protocols ? (
         <div className="py-12 text-center text-sm text-muted-foreground">Loading protocols…</div>
       ) : (
         <ProtocolLibraryView
-          protocols={librarySource}
+          protocols={searchSource}
           onSelect={onSelect}
           search={search}
           onNewFrom={onNewFrom}
+          selections={selections}
+          onSelectionsChange={setSelections}
+          datesLoading={datesLoading}
+          datesError={datesError}
         />
       )}
     </div>

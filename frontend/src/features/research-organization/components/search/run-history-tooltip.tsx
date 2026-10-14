@@ -1,6 +1,7 @@
 "use client";
 
 import type { ActivityValue, InterceptKey } from "@/features/research-organization/types";
+import { EntityLink } from "@/shared/components/entity-link";
 import { cn } from "@/shared/lib/utils";
 
 export interface RunHistoryTooltipProps {
@@ -44,56 +45,75 @@ export function RunHistoryTooltip({ av, interceptKey, unit }: RunHistoryTooltipP
           Run history
         </span>
         <span className="text-muted-foreground tabular-nums">
-          {av.run_count ?? 0} run{(av.run_count ?? 0) === 1 ? "" : "s"}
+          {av.run_count ?? runs.length} run{(av.run_count ?? runs.length) === 1 ? "" : "s"}
         </span>
       </div>
 
-      <table className="w-full border-collapse">
-        <thead>
-          <tr className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            <th className="pb-1 text-left font-normal">Date</th>
-            <th className="pb-1 text-right font-normal">Value</th>
-            <th className="pb-1 text-right font-normal">R²</th>
-            <th className="pb-1 text-right font-normal">Class</th>
-          </tr>
-        </thead>
-        <tbody>
-          {runs.map((r) => {
-            const iv = findInterceptValue(r.intercept_values, interceptKey);
-            const isInactive = r.curve_class === "inactive";
-            const isAtBound = iv?.at_bound === true;
-            return (
-              <tr key={r.run_id} className="border-t border-border/40">
-                <td className="py-1 tabular-nums">{r.run_date}</td>
-                <td className="py-1 text-right tabular-nums font-mono">
-                  {isInactive ? (
-                    <span className="text-muted-foreground">ND</span>
-                  ) : isAtBound ? (
-                    <span>
-                      &gt; {iv?.value} {unit}
-                    </span>
-                  ) : iv?.value !== null && iv?.value !== undefined ? (
-                    <span>
-                      {iv.value.toPrecision(3)} {unit}
-                    </span>
-                  ) : (
-                    <span className="text-muted-foreground">&mdash;</span>
-                  )}
-                </td>
-                <td
-                  className={cn(
-                    "py-1 text-right tabular-nums",
-                    (r.r_squared ?? 0) < 0.85 && "text-amber-600",
-                  )}
-                >
-                  {r.r_squared?.toFixed(2) ?? "—"}
-                </td>
-                <td className="py-1 text-right uppercase text-[10px]">{r.curve_class ?? "—"}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      {runs.length === 0 && (
+        <p className="text-muted-foreground">
+          Run dates and source links were not supplied for this result.
+        </p>
+      )}
+      {runs.length < (av.run_count ?? 0) && (
+        <p className="text-muted-foreground">
+          Showing the latest {runs.length} of {av.run_count} runs supplied by search.
+        </p>
+      )}
+      {runs.length > 0 && (
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              <th className="pb-1 text-left font-normal">Date</th>
+              <th className="pb-1 text-right font-normal">Value</th>
+              <th className="pb-1 text-right font-normal">R²</th>
+              <th className="pb-1 text-right font-normal">Class</th>
+            </tr>
+          </thead>
+          <tbody>
+            {runs.map((r) => {
+              const iv = findInterceptValue(r.intercept_values, interceptKey);
+              const isInactive = r.curve_class === "inactive";
+              const isAtBound = iv?.at_bound === true;
+              return (
+                <tr key={`${r.run_id}:${r.curve_id}`} className="border-t border-border/40">
+                  <td className="py-1 tabular-nums">
+                    <EntityLink
+                      type="run"
+                      id={r.run_id}
+                      label={r.run_date || "Open run"}
+                      className="text-xs"
+                    />
+                  </td>
+                  <td className="py-1 text-right tabular-nums font-mono">
+                    {isInactive ? (
+                      <span className="text-muted-foreground">ND</span>
+                    ) : isAtBound ? (
+                      <span title="Fit reached a bound. Open the source run for the tested concentration range.">
+                        Bound fit
+                      </span>
+                    ) : iv?.value !== null && iv?.value !== undefined ? (
+                      <span>
+                        {iv.value.toPrecision(3)} {unit}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">&mdash;</span>
+                    )}
+                  </td>
+                  <td
+                    className={cn(
+                      "py-1 text-right tabular-nums",
+                      (r.r_squared ?? 0) < 0.85 && "text-amber-600",
+                    )}
+                  >
+                    {r.r_squared?.toFixed(2) ?? "—"}
+                  </td>
+                  <td className="py-1 text-right uppercase text-[10px]">{r.curve_class ?? "—"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
 
       {stats && (stats.geometric_mean !== null || stats.fold_range !== null) && (
         <div className="border-t border-border/60 pt-2 text-xs text-muted-foreground space-y-0.5 tabular-nums">

@@ -22,7 +22,7 @@ import {
 import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { useReportConfig } from "../../hooks/use-report-config";
-import { expandParentTokens } from "../../lib/protocol-column-id";
+import { expandParentTokens, uniqueProtocolIds } from "../../lib/protocol-column-id";
 import {
   buildReadoutCustomizerEntries,
   replaceProtocolEntries,
@@ -90,12 +90,21 @@ export function ReportCustomizer({
 }: ReportCustomizerProps) {
   const { config, updateConfig, setVisibleFields } = useReportConfig();
   const { visibleFields } = config;
+  const displayedProtocolIds = [
+    ...new Set([...activeProtocolIds, ...uniqueProtocolIds(protocolColumns, protocols)]),
+  ];
+  const availableAssays = protocols
+    .filter(
+      (p) =>
+        !displayedProtocolIds.includes(p.id) && buildReadoutCustomizerEntries(p, p.id).length > 0,
+    )
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-[420px] sm:max-w-[420px] p-0 flex flex-col">
         <SheetHeader className="px-4 pt-4 pb-2 shrink-0">
-          <SheetTitle>Customize Report</SheetTitle>
+          <SheetTitle>Columns & display</SheetTitle>
           <SheetDescription>
             Configure which fields and display options appear in search results.
           </SheetDescription>
@@ -168,7 +177,34 @@ export function ReportCustomizer({
                 onChange={(fields) => setVisibleFields({ molecule: fields })}
               />
 
-              {activeProtocolIds.map((protocolId) => {
+              <label className="flex flex-col gap-2 text-sm font-medium">
+                Add assay columns
+                <select
+                  className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+                  value=""
+                  onChange={(event) => {
+                    const protocol = protocols.find((p) => p.id === event.target.value);
+                    if (!protocol) return;
+                    const entries = buildReadoutCustomizerEntries(protocol, protocol.id);
+                    const potency = entries.filter((entry) => entry.key.startsWith("drc:"));
+                    onProtocolColumnsChange([
+                      ...protocolColumns,
+                      ...(potency.length ? potency : entries).map((entry) => entry.key),
+                    ]);
+                  }}
+                >
+                  <option value="">Choose an assay…</option>
+                  {availableAssays.map((protocol) => (
+                    <option key={protocol.id} value={protocol.id}>
+                      {protocol.name}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-xs font-normal text-muted-foreground">
+                  Add evidence alongside the current hits. Apply with Update Report.
+                </span>
+              </label>
+              {displayedProtocolIds.map((protocolId) => {
                 const protocol = protocols.find((p) => p.id === protocolId);
                 const protocolName = protocol?.name ?? "Unknown Protocol";
                 // One entry per DR intercept + one per numeric readout. The

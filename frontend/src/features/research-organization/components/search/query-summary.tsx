@@ -1,149 +1,238 @@
 "use client";
 
+import type { Protocol } from "@/features/screening-assay/types";
+import {
+  buildActivityWhereOptions,
+  whereConditionOptionId,
+} from "../../lib/activity-where-options";
 import type {
-  ActivityCriterion,
-  BatchCriterion,
-  CustomFieldCriterion,
-  GroupCriterion,
-  KeywordListCriterion,
-  ProjectCriterion,
-  PropertyCriterion,
-  PropertyOperator,
-  RunDateCriterion,
+  ActivityWhereCondition,
+  RunScope,
   SearchCriterion,
-  SelectivityCriterion,
+  SearchQuery,
   StructureCriterion,
-  TextCriterion,
-  TextOperator,
 } from "../../types";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+export interface SummaryContext {
+  protocols?: Protocol[];
+  projects?: { id: string; name: string }[];
+  collections?: { id: string; name: string }[];
+  tags?: { id: string; name: string }[];
+}
 
-const TEXT_OP_LABELS: Record<TextOperator, string> = {
-  contains: "contains",
-  equals: "=",
-  starts_with: "starts with",
+const FIELDS: Record<string, string> = {
+  molecular_weight: "MW",
+  logp: "LogP",
+  tpsa: "TPSA",
+  hbd: "HBD",
+  hba: "HBA",
+  rotatable_bonds: "Rotatable bonds",
+  heavy_atom_count: "Heavy atoms",
+  aromatic_rings: "Aromatic rings",
+  ring_count: "Rings",
+  ro5_violations: "Ro5 violations",
+  registration_number: "Compound ID",
+  molecular_formula: "Formula",
+  inchi_key: "InChIKey",
+  any: "Any field",
+  name: "Name",
 };
-
-const PROP_OP_LABELS: Record<PropertyOperator, string> = {
+const OPS: Record<string, string> = {
   eq: "=",
   lt: "<",
-  lte: "\u2264",
+  lte: "≤",
   gt: ">",
-  gte: "\u2265",
-  between: "\u2013",
+  gte: "≥",
+  equals: "=",
+  contains: "contains",
+  starts_with: "starts with",
 };
+const fieldName = (field: string) => FIELDS[field] ?? field.replaceAll("_", " ");
+const named = (items: { id: string; name: string }[] | undefined, id: string, kind: string) =>
+  items?.find((item) => item.id === id)?.name ?? `${kind} ${id}`;
 
-function criterionText(c: SearchCriterion): string {
-  const prefix = c.negate ? "NOT " : "";
+function bounds(
+  c: { operator?: string; value?: string | number; min?: number; max?: number },
+  unit?: string | null,
+): string {
+  const suffix = unit ? ` ${unit}` : "";
+  if (c.operator === "between") {
+    if (c.min != null && c.max != null) return `${c.min}–${c.max}${suffix}`;
+    if (c.min != null) return `≥ ${c.min}${suffix}`;
+    if (c.max != null) return `≤ ${c.max}${suffix}`;
+    return "any value";
+  }
+  return `${OPS[c.operator ?? "eq"] ?? c.operator} ${c.value ?? "…"}${suffix}`;
+}
 
-  switch (c.type) {
-    case "text": {
-      const tc = c as TextCriterion;
-      return `${prefix}${tc.field} ${TEXT_OP_LABELS[tc.operator]} "${tc.value}"`;
-    }
-    case "property": {
-      const pc = c as PropertyCriterion;
-      if (pc.operator === "between" && pc.min != null && pc.max != null) {
-        return `${prefix}${pc.field}: ${pc.min}\u2013${pc.max}`;
-      }
-      return `${prefix}${pc.field} ${PROP_OP_LABELS[pc.operator]} ${pc.value ?? ""}`;
-    }
-    case "structure": {
-      const sc = c as StructureCriterion;
-      if (sc.search_type === "similarity") {
-        const pct = sc.threshold != null ? Math.round(sc.threshold * 100) : 70;
-        return `${prefix}Similarity \u2265 ${pct}%`;
-      }
-      if (sc.search_type === "exact") return `${prefix}Exact structure`;
-      return `${prefix}Substructure match`;
-    }
-    case "activity": {
-      const ac = c as ActivityCriterion;
-      const where = Array.isArray(ac.where) && ac.where.length > 0 ? ac.where : null;
-      if (where) {
-        const n = where.length;
-        return `${prefix}Protocol activity (${n} filter${n === 1 ? "" : "s"})`;
-      }
-      if (ac.operator !== undefined && ac.value !== undefined) {
-        return `${prefix}Protocol activity ${PROP_OP_LABELS[ac.operator]} ${ac.value}`;
-      }
-      return `${prefix}Tested in protocol`;
-    }
-    case "collection": {
-      return `${prefix}In collection`;
-    }
-    case "project": {
-      const pc = c as ProjectCriterion;
-      const n = pc.project_ids?.length ?? 0;
-      return `${prefix}${n} project${n === 1 ? "" : "s"}`;
-    }
-    case "keyword_list": {
-      const kc = c as KeywordListCriterion;
-      const n = kc.values?.length ?? 0;
-      return `${prefix}${n} identifier${n === 1 ? "" : "s"}`;
-    }
-    case "run_date": {
-      const rc = c as RunDateCriterion;
-      const from = rc.date_from ?? "...";
-      const to = rc.date_to ?? "...";
-      return `${prefix}Run date: ${from} \u2013 ${to}`;
-    }
-    case "batch": {
-      const bc = c as BatchCriterion;
-      return `${prefix}Batch: ${bc.field ?? "filter"}`;
-    }
-    case "selectivity": {
-      const sc = c as SelectivityCriterion;
-      return `${prefix}Selectivity ratio ${PROP_OP_LABELS[sc.ratio_operator]} ${sc.ratio_value}`;
-    }
-    case "custom_field": {
-      const cf = c as CustomFieldCriterion;
-      return `${prefix}Custom: ${cf.field}`;
-    }
-    case "group": {
-      const gc = c as GroupCriterion;
-      const n = gc.criteria?.length ?? 0;
-      return `${prefix}(${n} grouped filter${n === 1 ? "" : "s"})`;
-    }
+function runScopeText(scope?: RunScope): string {
+  switch (scope?.mode) {
+    case "latest":
+      return "latest run";
+    case "all":
+      return "every run";
+    case "specific":
+      return `${scope.run_ids?.length ?? (scope.run_id ? 1 : 0)} selected run(s)`;
+    case "date_range":
+      return `runs ${scope.date_from ?? "any start date"} to ${scope.date_to ?? "today"}`;
+    case "past_n_days":
+      return `runs in the past ${scope.days} days`;
     default:
-      return `${prefix}${(c as { type: string }).type}`;
+      return "any run";
   }
 }
 
-// ─── Public API ──────────────────────────────────────────────────────────────
+function activityCondition(c: ActivityWhereCondition, protocol?: Protocol): string {
+  if (c.source === "curve_class") return `curve class is ${(c.curve_classes ?? []).join(" or ")}`;
+  const option = buildActivityWhereOptions(protocol).find(
+    (o) => o.id === whereConditionOptionId(c),
+  );
+  const endpoint = c.intercept_key
+    ? `${c.intercept_key.kind.toUpperCase()}${c.intercept_key.level}`
+    : "Potency";
+  const label = option?.label ?? c.readout_name ?? endpoint;
+  const unit = option
+    ? option.unit
+    : c.source === "dr_curve" && !c.readout_definition_id
+      ? "µM"
+      : c.unit;
+  return `${label} ${bounds(c, unit)}`;
+}
 
-/**
- * Produces a human-readable text summary from a SearchQuery JSON object.
- * Handles both a full SearchQuery (`{ criteria, logic }`) and a bare object.
- */
-export function querySummaryText(query: Record<string, unknown>): string {
-  // Try to interpret as SearchQuery
+function criterionText(c: SearchCriterion, context: SummaryContext): string {
+  let text: string;
+  switch (c.type) {
+    case "group":
+      text = `(${c.criteria.map((child) => criterionText(child, context)).join(c.logic === "or" ? " OR " : " AND ")})`;
+      break;
+    case "project":
+      text = c.project_ids.length
+        ? `Project: ${c.project_ids.map((id) => named(context.projects, id, "project")).join(" or ")}`
+        : "All projects";
+      break;
+    case "text":
+      text = `${fieldName(c.field)} ${OPS[c.operator]} “${c.value}”`;
+      break;
+    case "property":
+      text = `${fieldName(c.field)} ${bounds(c)}`;
+      break;
+    case "structure":
+      text =
+        c.search_type === "similarity"
+          ? `${c.mode === "scaffold_hop" ? "Scaffold hop" : c.mode === "fragment_in_target" ? "Contains my fragment" : "Similarity"} ≥ ${Math.round((c.threshold ?? 0.7) * 100)}%`
+          : c.search_type === "exact"
+            ? "Exact structure"
+            : `Substructure match${c.generalized ? " (including tautomers and variants)" : ""}`;
+      break;
+    case "activity": {
+      const protocol = context.protocols?.find((p) => p.id === c.protocol_id);
+      const name =
+        c.protocol_id === null ? "any assay" : (protocol?.name ?? `assay ${c.protocol_id}`);
+      const conditions = c.where?.length
+        ? c.where
+        : c.operator && c.value != null
+          ? [
+              {
+                source: c.source ?? "dr_curve",
+                readout_definition_id: c.readout_definition_id ?? "",
+                operator: c.operator,
+                value: c.value,
+              },
+            ]
+          : [];
+      text = `Tested in ${name} (${runScopeText(c.run_scope)})${conditions.length ? ` where ${conditions.map((w) => activityCondition(w, protocol)).join(" AND ")}` : ""}`;
+      if (conditions.length > 1) text = `(${text})`;
+      break;
+    }
+    case "collection":
+      text = `In ${named(context.collections, c.collection_id, "collection")}`;
+      break;
+    case "tag":
+      text = `Tags: ${c.tag_ids.map((id) => named(context.tags, id, "tag")).join(c.tag_logic === "all" ? " AND " : " OR ")}`;
+      if (c.tag_ids.length > 1) text = `(${text})`;
+      break;
+    case "scaffold":
+      text =
+        c.mode === "acyclic_only"
+          ? "Acyclic compounds"
+          : c.mode === "exact_match_in"
+            ? `One of ${c.scaffold_smiles_list?.length ?? 0} scaffolds`
+            : `Scaffold: ${c.scaffold_smiles}`;
+      break;
+    case "keyword_list":
+      text = `${c.values.length} identifiers (${c.ref_type})`;
+      break;
+    case "run_date":
+      text = `Run date: ${c.date_from ?? "any start date"} to ${c.date_to ?? "today"}`;
+      break;
+    case "batch":
+      text = `Batch ${fieldName(c.field ?? "date")}: ${c.field_type === "date" ? `${c.date_from ?? "any start date"} to ${c.date_to ?? "today"}` : bounds(c)}`;
+      break;
+    case "custom_field":
+      text = `${c.field} ${bounds(c)}`;
+      break;
+    case "selectivity": {
+      const readouts = context.protocols?.flatMap((p) =>
+        p.readout_definitions.map((r) => ({ id: r.id, name: `${p.name} / ${r.name}` })),
+      );
+      text = `Selectivity (${named(readouts, c.counter_readout_definition_id, "counter readout")} / ${named(readouts, c.target_readout_definition_id, "target readout")}) ${bounds({ operator: c.ratio_operator, value: c.ratio_value })}-fold`;
+      break;
+    }
+  }
+  return c.negate ? `NOT (${text})` : text;
+}
+
+export function querySummaryText(
+  query: SearchQuery | Record<string, unknown>,
+  context: SummaryContext = {},
+): string {
   const criteria = query.criteria as SearchCriterion[] | undefined;
-  if (!Array.isArray(criteria) || criteria.length === 0) {
-    return "Empty query";
-  }
-
-  const logic = (query.logic as string) ?? "and";
-  const separator = logic === "or" ? " OR " : " | ";
-
-  return criteria.map(criterionText).join(separator);
-}
-
-// ─── Component ───────────────────────────────────────────────────────────────
-
-interface QuerySummaryProps {
-  query: Record<string, unknown>;
-  className?: string;
-}
-
-export function QuerySummary({ query, className }: QuerySummaryProps) {
+  if (!criteria?.length) return "All compounds · All projects";
+  const hasProject = (items: SearchCriterion[]): boolean =>
+    items.some((c) => c.type === "project" || (c.type === "group" && hasProject(c.criteria)));
+  const scope = hasProject(criteria) ? "" : "All projects · ";
   return (
-    <span
-      className={className ?? "text-xs text-muted-foreground truncate"}
-      title={querySummaryText(query)}
-    >
-      {querySummaryText(query)}
+    scope +
+    criteria.map((c) => criterionText(c, context)).join(query.logic === "or" ? " OR " : " AND ")
+  );
+}
+
+/** Stable across object-key order and equivalent AND/OR criterion ordering. */
+export function searchQueryKey(query: SearchQuery): string {
+  function canonical(value: unknown, key?: string): unknown {
+    if (Array.isArray(value)) {
+      const items = value.map((item) => canonical(item));
+      return key === "criteria"
+        ? items.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+        : items;
+    }
+    if (value && typeof value === "object") {
+      return Object.fromEntries(
+        Object.entries(value)
+          .filter(([, v]) => v !== undefined)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([k, v]) => [k, canonical(v, k)]),
+      );
+    }
+    return value;
+  }
+  return JSON.stringify(canonical({ ...query, logic: query.logic ?? "and" }));
+}
+
+export function structureQuery(query: SearchQuery | null): StructureCriterion | undefined {
+  // Only a positive top-level criterion applies to every returned compound.
+  return query?.criteria.find((c): c is StructureCriterion => c.type === "structure" && !c.negate);
+}
+
+export function QuerySummary({
+  query,
+  context,
+  className,
+}: { query: SearchQuery | Record<string, unknown>; context?: SummaryContext; className?: string }) {
+  const summary = querySummaryText(query, context);
+  return (
+    <span className={className ?? "text-xs text-muted-foreground truncate"} title={summary}>
+      {summary}
     </span>
   );
 }

@@ -16,7 +16,7 @@ import type { TextCriterion, TextOperator } from "../../types";
 const TEXT_FIELDS = [
   { value: "any", label: "Any" },
   { value: "name", label: "Name" },
-  { value: "registration_number", label: "Reg Number" },
+  { value: "registration_number", label: "Compound ID" },
   { value: "molecular_formula", label: "Formula" },
   { value: "inchi_key", label: "InChI Key" },
 ] as const;
@@ -43,7 +43,7 @@ function KeywordTerm({
   onRemove: () => void;
 }) {
   return (
-    <div className="flex items-center gap-2 mb-1.5">
+    <div className="flex flex-wrap items-center gap-2 mb-1.5">
       <div className="w-28">
         <Select value={criterion.field} onValueChange={(v) => onChange({ ...criterion, field: v })}>
           <SelectTrigger className="h-8 text-sm">
@@ -77,10 +77,10 @@ function KeywordTerm({
         </Select>
       </div>
 
-      <div className="flex-1">
+      <div className="min-w-40 flex-1">
         <Input
           className="h-8 text-sm"
-          placeholder="Search text..."
+          placeholder="Enter an ID, name, or other identifier"
           value={criterion.value}
           onChange={(e) => onChange({ ...criterion, value: e.target.value })}
         />
@@ -89,6 +89,7 @@ function KeywordTerm({
       <button
         type="button"
         onClick={onRemove}
+        aria-label="Remove identifier condition"
         className="text-muted-foreground/40 hover:text-destructive"
       >
         <Trash2 className="h-3.5 w-3.5" />
@@ -121,7 +122,7 @@ export function KeywordSection({ criteria, onChange }: KeywordSectionProps) {
     <div>
       <div className="mb-2 flex items-center gap-2">
         <span className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Keywords
+          Compound identifiers
         </span>
         <button
           type="button"
@@ -133,7 +134,7 @@ export function KeywordSection({ criteria, onChange }: KeywordSectionProps) {
       </div>
 
       {criteria.length === 0 && (
-        <p className="text-sm italic text-muted-foreground/50">No keyword filters.</p>
+        <p className="text-sm italic text-muted-foreground/50">No identifier filters.</p>
       )}
 
       <div>

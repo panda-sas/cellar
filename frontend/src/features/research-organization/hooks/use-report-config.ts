@@ -14,7 +14,8 @@ const DEFAULT_VISIBLE_FIELDS: VisibleFields = {
 };
 
 const DEFAULT_CONFIG: ReportConfig = {
-  imageSize: "medium",
+  imageSize: "small",
+  displayPreset: "compact",
   visibleFields: DEFAULT_VISIBLE_FIELDS,
 };
 
@@ -46,6 +47,7 @@ export const useReportConfig = create<ReportConfigState>((set) => ({
     set({
       config: {
         imageSize: partial.imageSize ?? DEFAULT_CONFIG.imageSize,
+        displayPreset: partial.displayPreset ?? "curves",
         visibleFields: {
           structure: partial.visibleFields?.structure ?? DEFAULT_VISIBLE_FIELDS.structure,
           properties: partial.visibleFields?.properties ?? DEFAULT_VISIBLE_FIELDS.properties,

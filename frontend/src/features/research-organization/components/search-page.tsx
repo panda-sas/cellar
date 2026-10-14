@@ -3,17 +3,21 @@
 import type { Molecule } from "@/features/chemical-registration/types";
 import { consumeScaffoldSearch } from "@/features/research-organization/lib/scaffold-search-handoff";
 import { useProtocols } from "@/features/screening-assay/hooks/use-protocols";
+import { useTags } from "@/features/tagging/hooks/use-tags";
 import { CollectionPickerDialog } from "@/shared/components/collection-picker-dialog";
 import type { ExportFormat, ExportRequest } from "@/shared/components/export/types";
 import { Button } from "@/shared/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCollections } from "../hooks/use-collections";
+import { useProjects } from "../hooks/use-projects";
 import { useReportConfig } from "../hooks/use-report-config";
 import { useSavedSearches } from "../hooks/use-saved-searches";
 import { type EnrichedSearchResponse, useExecuteSearch } from "../hooks/use-search";
 import { toBackendProtocolColumns, uniqueProtocolIds } from "../lib/protocol-column-id";
 import {
+  AGGREGATION_LABELS,
   aggregationModeToWire,
   computeScopeForcesSingleRun,
   useAggregationMode,
@@ -28,12 +32,20 @@ import {
   type SortField,
   anyProtocolActivity,
 } from "../types";
+import { CompoundComparison } from "./search/compound-comparison";
 import { CompoundDetailSheet } from "./search/compound-detail-sheet";
+import { QuerySummary, searchQueryKey, structureQuery } from "./search/query-summary";
 import { ReportCustomizer } from "./search/report-customizer";
 import { ResultsGrid } from "./search/results-grid";
-import { ResultsToolbarActions, ResultsToolbarLeft } from "./search/results-toolbar";
+import {
+  ResultsSelectionActions,
+  ResultsToolbarActions,
+  ResultsToolbarLeft,
+  ResultsViewControls,
+} from "./search/results-toolbar";
 import { SaveSearchDialog } from "./search/save-search-dialog";
 import { SEARCH_PAGE_SIZE, SearchForm } from "./search/search-form";
+import { SearchStructureReference } from "./search/search-structure-reference";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -43,6 +55,7 @@ type EnrichedMolecule = Molecule & { activity?: Record<string, ActivityValue> };
 
 interface SearchState {
   currentQuery: SearchQuery | null;
+  executedAggregation: AggregationMode;
   protocolColumns: string[];
   results: EnrichedMolecule[];
   nextCursor: string | null;
@@ -59,11 +72,12 @@ type SearchAction =
   | { type: "reset" }
   | {
       type: "searchStart";
-      query: SearchQuery;
-      protocolColumns: string[];
     }
   | {
       type: "searchComplete";
+      query: SearchQuery;
+      protocolColumns: string[];
+      aggregation: AggregationMode;
       results: EnrichedMolecule[];
       nextCursor: string | null;
       totalCount: number | null;
@@ -74,7 +88,6 @@ type SearchAction =
       nextCursor: string | null;
       totalCount: number | null;
     }
-  | { type: "setProtocolColumns"; protocolColumns: string[] }
   | { type: "setSort"; sortBy: SortField | undefined; sortDir: SortDir }
   | { type: "setGridSelection"; ids: Set<string> }
   | { type: "select"; molecule: EnrichedMolecule; index: number }
@@ -83,6 +96,7 @@ type SearchAction =
 
 const initialSearchState: SearchState = {
   currentQuery: null,
+  executedAggregation: "latest",
   protocolColumns: [],
   results: [],
   nextCursor: null,
@@ -102,8 +116,6 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
     case "searchStart":
       return {
         ...state,
-        currentQuery: action.query,
-        protocolColumns: action.protocolColumns,
         hasSearched: true,
         selectedMolecule: null,
         gridSelectedIds: new Set(),
@@ -111,6 +123,9 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
     case "searchComplete":
       return {
         ...state,
+        currentQuery: action.query,
+        protocolColumns: action.protocolColumns,
+        executedAggregation: action.aggregation,
         results: action.results,
         nextCursor: action.nextCursor,
         totalCount: action.totalCount,
@@ -120,13 +135,8 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
         ...state,
         results: [...state.results, ...action.results],
         nextCursor: action.nextCursor,
-        totalCount: action.totalCount,
+        totalCount: action.totalCount ?? state.totalCount,
       };
-    case "setProtocolColumns":
-      // Customizer-driven update to which columns the grid renders. The
-      // customizer reads its check-state from `state.protocolColumns`, so
-      // this is the single SoT — no separate `readoutColumns` shadow state.
-      return { ...state, protocolColumns: action.protocolColumns };
     case "setSort":
       return { ...state, sortBy: action.sortBy, sortDir: action.sortDir };
     case "setGridSelection":
@@ -164,6 +174,7 @@ function SearchPageInner() {
 
   // ── Dialogs (independent of search state) ─────────────────────────────
   const [reportOpen, setReportOpen] = useState(false);
+  const [reportColumns, setReportColumns] = useState<string[] | null>(null);
   const [saveOpen, setSaveOpen] = useState(false);
   const [pickerMolIds, setPickerMolIds] = useState<string[]>([]);
 
@@ -171,6 +182,7 @@ function SearchPageInner() {
   const [
     {
       currentQuery,
+      executedAggregation,
       protocolColumns,
       results,
       nextCursor,
@@ -189,6 +201,30 @@ function SearchPageInner() {
   const searchMutation = useExecuteSearch();
   const { data: protocols } = useProtocols();
   const { data: savedSearches } = useSavedSearches();
+  const { data: projects } = useProjects();
+  const { data: collections } = useCollections();
+  const { data: tags } = useTags();
+  const summaryContext = {
+    protocols: protocols ?? [],
+    projects,
+    collections,
+    tags: tags?.map((tag) => ({
+      id: tag.id,
+      name: tag.value ? `${tag.key}: ${tag.value}` : tag.key,
+    })),
+  };
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [comparisonIds, setComparisonIds] = useState<string[]>([]);
+  const [comparisonEndpoints, setComparisonEndpoints] = useState({ targetId: "", counterId: "" });
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+  const [searchPending, setSearchPending] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const requestVersion = useRef(0);
+  const retrySearch = useRef<(() => void) | null>(null);
+  const draftQuery = useRef<SearchQuery | null>(null);
+  const onDraftChange = useCallback((query: SearchQuery) => {
+    draftQuery.current = query;
+  }, []);
   const { config: reportConfig, loadFromSavedSearch } = useReportConfig();
   // URL-synced aggregation mode. The toolbar's <AggregationControl /> owns
   // the writer; the page reads + injects into the request body, and also
@@ -247,156 +283,105 @@ function SearchPageInner() {
     [],
   );
 
-  // ── handleSearch ───────────────────────────────────────────────────────
-  const handleSearch = useCallback(
-    (query: SearchQuery, columns: string[]) => {
-      dispatch({ type: "searchStart", query, protocolColumns: columns });
-
-      // BE only understands the canonical `drc:<rd>` / `rd:<proto>:<rd>`
-      // shapes. Narrowed `drc:<rd>:kind:level` tokens (introduced by the
-      // customizer for per-intercept visibility) collapse to their parent
-      // here so the activity-service doesn't crash trying to parse a
-      // 4-segment drc token as a UUID.
+  // Commit rows and their query together. Request versions also invalidate
+  // responses after Reset or a newer search, including saved-search handoffs.
+  const { mutateAsync } = searchMutation;
+  const executeRequest = useCallback(
+    function run(
+      query: SearchQuery,
+      columns: string[],
+      mode: AggregationMode,
+      options: { cursor?: string; collapse?: boolean } = {},
+    ) {
+      const version = ++requestVersion.current;
+      const startingDraft = draftQuery.current ? searchQueryKey(draftQuery.current) : null;
+      setSearchPending(true);
+      setSearchError(null);
+      if (!options.cursor) {
+        setCompareOpen(false);
+        dispatch({ type: "searchStart" });
+      }
+      retrySearch.current = () => run(query, columns, mode, options);
       const backendCols = toBackendProtocolColumns(columns);
-      const input = {
-        query,
-        ...(backendCols.length > 0 ? { protocol_columns: backendCols } : {}),
-        aggregation: aggregationModeToWire(aggregationMode),
-      };
-
-      searchMutation.mutate(
-        { input, limit: SEARCH_PAGE_SIZE, sort_by: sortBy, sort_dir: sortDir },
-        {
-          onSuccess: (data) => {
+      void mutateAsync({
+        input: {
+          query,
+          ...(backendCols.length ? { protocol_columns: backendCols } : {}),
+          aggregation: aggregationModeToWire(mode),
+        },
+        limit: SEARCH_PAGE_SIZE,
+        cursor: options.cursor,
+        sort_by: sortBy,
+        sort_dir: sortDir,
+      })
+        .then((data) => {
+          if (version !== requestVersion.current) return;
+          const payload = {
+            results: enrichItems(data),
+            nextCursor: data.next_cursor ?? null,
+            totalCount: data.total_count ?? null,
+          };
+          if (options.cursor) dispatch({ type: "loadMoreComplete", ...payload });
+          else
             dispatch({
               type: "searchComplete",
-              results: enrichItems(data),
-              nextCursor: data.next_cursor ?? null,
-              totalCount: data.total_count ?? null,
+              query,
+              protocolColumns: columns,
+              aggregation: mode,
+              ...payload,
             });
-          },
-          onError: (err) => {
-            console.error("[Search] mutation failed:", err);
-            dispatch({ type: "searchComplete", results: [], nextCursor: null, totalCount: null });
-          },
-        },
-      );
+          if (
+            options.collapse &&
+            (!draftQuery.current ||
+              searchQueryKey(draftQuery.current) === searchQueryKey(query) ||
+              searchQueryKey(draftQuery.current) === startingDraft)
+          )
+            setFiltersCollapsed(true);
+          retrySearch.current = null;
+        })
+        .catch((error: unknown) => {
+          if (version !== requestVersion.current) return;
+          setSearchError(
+            error instanceof Error
+              ? error.message.replace(/^API error: \d+ — /, "")
+              : "The search could not be completed.",
+          );
+        })
+        .finally(() => {
+          if (version === requestVersion.current) setSearchPending(false);
+        });
     },
-    [searchMutation, sortBy, sortDir, enrichItems, aggregationMode],
+    [mutateAsync, sortBy, sortDir, enrichItems],
   );
 
-  // ── handleLoadMore ─────────────────────────────────────────────────────
+  const handleSearch = useCallback(
+    (query: SearchQuery, columns: string[]) => {
+      executeRequest(query, columns, aggregationMode, { collapse: true });
+    },
+    [executeRequest, aggregationMode],
+  );
+
   const handleLoadMore = useCallback(() => {
-    if (!currentQuery || !nextCursor) return;
-    const backendCols = toBackendProtocolColumns(protocolColumns);
-    const input = {
-      query: currentQuery,
-      ...(backendCols.length > 0 ? { protocol_columns: backendCols } : {}),
-      aggregation: aggregationModeToWire(aggregationMode),
-    };
+    if (currentQuery && nextCursor)
+      executeRequest(currentQuery, protocolColumns, executedAggregation, { cursor: nextCursor });
+  }, [currentQuery, nextCursor, protocolColumns, executedAggregation, executeRequest]);
 
-    searchMutation.mutate(
-      { input, cursor: nextCursor, limit: SEARCH_PAGE_SIZE, sort_by: sortBy, sort_dir: sortDir },
-      {
-        onSuccess: (data) => {
-          dispatch({
-            type: "loadMoreComplete",
-            results: enrichItems(data),
-            nextCursor: data.next_cursor ?? null,
-            totalCount: data.total_count ?? null,
-          });
-        },
-      },
-    );
-  }, [
-    currentQuery,
-    nextCursor,
-    searchMutation,
-    protocolColumns,
-    sortBy,
-    sortDir,
-    enrichItems,
-    aggregationMode,
-  ]);
-
-  // ── Re-fetch with current columns (called from report customizer +
-  // when the aggregation mode changes) ──────────────────────────────────
   const handleUpdateReport = useCallback(() => {
-    if (!currentQuery || !hasSearched) return;
-    const backendCols = toBackendProtocolColumns(protocolColumns);
-    const input = {
-      query: currentQuery,
-      ...(backendCols.length > 0 ? { protocol_columns: backendCols } : {}),
-      aggregation: aggregationModeToWire(aggregationMode),
-    };
-    searchMutation.mutate(
-      { input, limit: SEARCH_PAGE_SIZE, sort_by: sortBy, sort_dir: sortDir },
-      {
-        onSuccess: (data) => {
-          dispatch({
-            type: "searchComplete",
-            results: enrichItems(data),
-            nextCursor: data.next_cursor ?? null,
-            totalCount: data.total_count ?? null,
-          });
-        },
-      },
-    );
+    if (currentQuery)
+      executeRequest(currentQuery, reportColumns ?? protocolColumns, aggregationMode);
     setReportOpen(false);
-  }, [
-    currentQuery,
-    hasSearched,
-    protocolColumns,
-    searchMutation,
-    sortBy,
-    sortDir,
-    enrichItems,
-    aggregationMode,
-  ]);
+  }, [currentQuery, protocolColumns, reportColumns, aggregationMode, executeRequest]);
 
   const handleSetProtocolColumns = useCallback((next: string[]) => {
-    dispatch({ type: "setProtocolColumns", protocolColumns: next });
+    setReportColumns(next);
   }, []);
 
-  // ── Re-trigger search when aggregation mode changes ────────────────────
-  // Mode change is BE-driven (the selection rule lives in the request
-  // body), so flipping `?agg=` must re-fetch with the new rule. Skips
-  // the very first render so we don't double-fire on initial mount.
   const previousAggregationModeRef = useRef(aggregationMode);
   useEffect(() => {
     if (previousAggregationModeRef.current === aggregationMode) return;
     previousAggregationModeRef.current = aggregationMode;
-    if (!currentQuery || !hasSearched) return;
-
-    const backendCols = toBackendProtocolColumns(protocolColumns);
-    const input = {
-      query: currentQuery,
-      ...(backendCols.length > 0 ? { protocol_columns: backendCols } : {}),
-      aggregation: aggregationModeToWire(aggregationMode),
-    };
-    searchMutation.mutate(
-      { input, limit: SEARCH_PAGE_SIZE, sort_by: sortBy, sort_dir: sortDir },
-      {
-        onSuccess: (data) => {
-          dispatch({
-            type: "searchComplete",
-            results: enrichItems(data),
-            nextCursor: data.next_cursor ?? null,
-            totalCount: data.total_count ?? null,
-          });
-        },
-      },
-    );
-  }, [
-    aggregationMode,
-    currentQuery,
-    hasSearched,
-    protocolColumns,
-    searchMutation,
-    sortBy,
-    sortDir,
-    enrichItems,
-  ]);
+    if (currentQuery) executeRequest(currentQuery, protocolColumns, aggregationMode);
+  }, [aggregationMode, currentQuery, protocolColumns, executeRequest]);
 
   // ── Auto-fire handoffs (saved search + scaffold) ──────────────────────
   //
@@ -420,7 +405,6 @@ function SearchPageInner() {
     useState<PendingSavedSearchLoad | null>(null);
   const [loadedSavedSearchId, setLoadedSavedSearchId] = useState<string | null>(null);
   const [pendingScaffoldQuery, setPendingScaffoldQuery] = useState<SearchQuery | null>(null);
-  const { mutate: runSearch } = searchMutation;
 
   // PREPARE: saved-search load — when the URL has ?saved=<id> and the
   // savedSearches list has resolved, decode the saved query + columns and
@@ -460,8 +444,8 @@ function SearchPageInner() {
     });
   }, [savedSearchId, savedSearches, loadedSavedSearchId, pendingSavedSearchLoad]);
 
-  // FIRE: saved-search load — execute the staged search. Uses runSearch
-  // directly (not handleSearch) because saved searches carry their OWN
+  // FIRE: saved-search load — execute the staged search. Uses executeRequest
+  // directly because saved searches carry their OWN
   // aggregationMode + columns that differ from the page's current state.
   useEffect(() => {
     if (!pendingSavedSearchLoad) return;
@@ -485,41 +469,11 @@ function SearchPageInner() {
     setAggregationMode(aggMode);
 
     setFormSeed(query);
-    dispatch({ type: "searchStart", query, protocolColumns: restoredColumns });
-
-    const backendCols = toBackendProtocolColumns(restoredColumns);
-    const input = {
-      query,
-      ...(backendCols.length > 0 ? { protocol_columns: backendCols } : {}),
-      aggregation: aggregationModeToWire(aggMode),
-    };
-    runSearch(
-      { input, limit: SEARCH_PAGE_SIZE },
-      {
-        onSuccess: (data) => {
-          dispatch({
-            type: "searchComplete",
-            results: enrichItems(data),
-            nextCursor: data.next_cursor ?? null,
-            totalCount: data.total_count ?? null,
-          });
-        },
-        onError: (err) => {
-          console.error("[Search] saved-search mutation failed:", err);
-          dispatch({
-            type: "searchComplete",
-            results: [],
-            nextCursor: null,
-            totalCount: null,
-          });
-        },
-      },
-    );
+    executeRequest(query, restoredColumns, aggMode, { collapse: true });
   }, [
     pendingSavedSearchLoad,
     savedSearchId,
-    runSearch,
-    enrichItems,
+    executeRequest,
     loadFromSavedSearch,
     setAggregationMode,
   ]);
@@ -566,7 +520,7 @@ function SearchPageInner() {
         payload: {
           query: currentQuery,
           ...(backendCols.length ? { protocol_columns: backendCols } : {}),
-          aggregation: aggregationModeToWire(aggregationMode),
+          aggregation: aggregationModeToWire(executedAggregation),
           // Project scope already rides in `query` as a project criterion —
           // the export runs exactly the grid's search.
           sort_by: sortBy,
@@ -578,7 +532,7 @@ function SearchPageInner() {
         },
       };
     },
-    [currentQuery, protocolColumns, aggregationMode, sortBy, sortDir, reportConfig],
+    [currentQuery, protocolColumns, executedAggregation, sortBy, sortDir, reportConfig],
   );
 
   // ── Add to collection ──────────────────────────────────────────────────
@@ -611,7 +565,9 @@ function SearchPageInner() {
   // ─── Layout ────────────────────────────────────────────────────────────
 
   return (
-    <div>
+    <div className="compound-search-page">
+      {/* Let the viewport own scrolling so the search action bar can stay sticky. */}
+      <style>{"main:has(> .compound-search-page) { overflow: visible; }"}</style>
       <div className="space-y-2">
         {/* Search form — always visible */}
         <SearchForm
@@ -619,55 +575,137 @@ function SearchPageInner() {
           projectIds={projectIds}
           onProjectsChange={setProjectIds}
           onSearch={handleSearch}
-          onReset={() => dispatch({ type: "reset" })}
-          isLoading={searchMutation.isPending}
+          onReset={() => {
+            requestVersion.current++;
+            retrySearch.current = null;
+            setSearchPending(false);
+            setSearchError(null);
+            setFiltersCollapsed(false);
+            setCompareOpen(false);
+            dispatch({ type: "reset" });
+          }}
+          isLoading={searchPending}
+          executedQuery={currentQuery}
+          collapsed={filtersCollapsed}
+          onCollapsedChange={setFiltersCollapsed}
+          onDraftChange={onDraftChange}
+          summaryContext={summaryContext}
           protocols={protocols ?? []}
         />
 
-        {/* Results area. The toolbar (result count, select, action buttons,
-            Export) lives inline on the grid's own toolbar row so the page
-            doesn't burn an extra row for Export. */}
-        {hasSearched && (
-          <>
-            <ResultsGrid
-              results={results}
-              protocolColumns={protocolColumns}
-              protocols={protocols ?? []}
-              reportConfig={reportConfig}
-              loading={searchMutation.isPending && results.length === 0}
-              onRowClick={handleRowClick}
-              selectedIds={gridSelectedIds}
-              toolbarLeft={
-                <ResultsToolbarLeft resultCount={totalCount} selectedCount={gridSelectedIds.size} />
-              }
-              toolbarActions={
-                <ResultsToolbarActions
-                  selectedCount={gridSelectedIds.size}
-                  onAddToCollection={handleAddToCollection}
-                  onCustomizeReport={() => setReportOpen(true)}
-                  onSaveSearch={() => setSaveOpen(true)}
-                  scopeForcesSingleRun={scopeForcesSingleRun}
-                />
-              }
-              onSelectionChange={(ids) => dispatch({ type: "setGridSelection", ids })}
-              buildExportRequest={buildExportRequest}
-            />
-            {nextCursor && (
-              <div className="flex justify-center py-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleLoadMore}
-                  disabled={searchMutation.isPending}
-                >
-                  {searchMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : null}
-                  Load More
-                </Button>
-              </div>
-            )}
-          </>
+        {searchError && (
+          <div
+            role="alert"
+            className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4"
+          >
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+            <div className="min-w-0 flex-1 text-sm">
+              <p className="font-medium">Search could not be completed</p>
+              <p className="mt-1 break-words text-muted-foreground">{searchError}</p>
+              {currentQuery && (
+                <p className="mt-1 text-muted-foreground">
+                  The previous results are still shown below.
+                </p>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={searchPending}
+              onClick={() => retrySearch.current?.()}
+            >
+              Retry
+            </Button>
+          </div>
+        )}
+        {searchPending && (
+          <output className="flex items-center gap-2 rounded-lg border bg-muted/40 px-4 py-3 text-sm">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {currentQuery
+              ? "Updating results… Previous results remain visible until the search completes."
+              : "Searching compounds…"}
+          </output>
+        )}
+        {hasSearched && (currentQuery || searchPending) && (
+          <ResultsGrid
+            results={results}
+            protocolColumns={protocolColumns}
+            protocols={protocols ?? []}
+            reportConfig={reportConfig}
+            loading={searchPending && !currentQuery}
+            structureCriterion={structureQuery(currentQuery)}
+            aggregationMode={executedAggregation}
+            onRowClick={handleRowClick}
+            selectedIds={gridSelectedIds}
+            toolbarLeft={
+              <ResultsToolbarLeft resultCount={totalCount} selectedCount={gridSelectedIds.size} />
+            }
+            summary={
+              currentQuery && (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <QuerySummary
+                      query={currentQuery}
+                      context={summaryContext}
+                      className="text-xs leading-relaxed text-foreground/70"
+                    />
+                    {protocolColumns.length > 0 && (
+                      <span className="shrink-0 rounded-full border border-primary/15 bg-primary/5 px-2 py-0.5 text-[11px] text-primary">
+                        {scopeForcesSingleRun
+                          ? "Single run per compound"
+                          : AGGREGATION_LABELS[executedAggregation]}
+                      </span>
+                    )}
+                  </div>
+                  <SearchStructureReference criterion={structureQuery(currentQuery)} />
+                </div>
+              )
+            }
+            toolbarActions={
+              <ResultsToolbarActions onSaveSearch={() => setSaveOpen(true)} busy={searchPending} />
+            }
+            viewControls={
+              <ResultsViewControls
+                onCustomizeReport={() => {
+                  setReportColumns(protocolColumns);
+                  setReportOpen(true);
+                }}
+                scopeForcesSingleRun={scopeForcesSingleRun}
+                busy={searchPending}
+                hasAssays={protocolColumns.length > 0}
+                hasCurves={protocolColumns.some((column) => column.startsWith("drc:"))}
+              />
+            }
+            selectionActions={
+              <ResultsSelectionActions
+                selectedCount={gridSelectedIds.size}
+                onAddToCollection={handleAddToCollection}
+                onCompare={() => {
+                  setComparisonIds(Array.from(gridSelectedIds));
+                  setCompareOpen(true);
+                }}
+                onClearSelection={() => dispatch({ type: "setGridSelection", ids: new Set() })}
+                busy={searchPending}
+              />
+            }
+            onSelectionChange={(ids) => dispatch({ type: "setGridSelection", ids })}
+            buildExportRequest={searchPending ? undefined : buildExportRequest}
+            footer={
+              nextCursor && (
+                <div className="flex justify-center py-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLoadMore}
+                    disabled={searchPending}
+                  >
+                    {searchPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Load More
+                  </Button>
+                </div>
+              )
+            }
+          />
         )}
 
         {!hasSearched && (
@@ -680,7 +718,30 @@ function SearchPageInner() {
       </div>
 
       {/* Overlays */}
+      {compareOpen && (
+        <CompoundComparison
+          molecules={comparisonIds.flatMap((id) => {
+            const mol = results.find((row) => row.id === id);
+            return mol ? [mol] : [];
+          })}
+          availableMolecules={results}
+          onMoleculesChange={setComparisonIds}
+          endpointPair={comparisonEndpoints}
+          onEndpointPairChange={setComparisonEndpoints}
+          onSaveShortlist={() => setPickerMolIds(comparisonIds)}
+          open={pickerMolIds.length === 0}
+          onLoadMore={nextCursor ? handleLoadMore : undefined}
+          loading={searchPending}
+          protocols={protocols ?? []}
+          protocolColumns={protocolColumns}
+          mode={executedAggregation}
+          onClose={() => setCompareOpen(false)}
+        />
+      )}
       <CompoundDetailSheet
+        key={selectedMolecule?.id ?? "closed"}
+        protocolColumns={protocolColumns}
+        protocols={protocols ?? []}
         molecule={selectedMolecule}
         visibleProtocolIds={sheetVisibleProtocolIds}
         currentIndex={selectedIndex}
@@ -688,6 +749,7 @@ function SearchPageInner() {
         onNavigate={handleDetailNavigate}
         onOpenChange={(open) => !open && dispatch({ type: "clearSelection" })}
         currentQuery={currentQuery}
+        aggregationMode={executedAggregation}
       />
 
       <ReportCustomizer
@@ -696,7 +758,7 @@ function SearchPageInner() {
         onUpdate={handleUpdateReport}
         protocols={protocols ?? []}
         activeProtocolIds={visibleProtocolIds}
-        protocolColumns={protocolColumns}
+        protocolColumns={reportColumns ?? protocolColumns}
         onProtocolColumnsChange={handleSetProtocolColumns}
       />
 
@@ -707,6 +769,7 @@ function SearchPageInner() {
           query={currentQuery}
           protocolColumns={protocolColumns}
           reportConfig={reportConfig}
+          executedAggregation={executedAggregation}
         />
       )}
 

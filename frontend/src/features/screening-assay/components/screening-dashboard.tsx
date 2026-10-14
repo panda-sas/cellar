@@ -3,9 +3,15 @@
 import { SetupChecklist } from "@/features/workspace-config/components/setup-checklist";
 import { PageHeader } from "@/shared/components/page-header";
 import { Button } from "@/shared/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/shared/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { useAuthzHasRole } from "@duar-auth/nextjs";
-import { Crosshair, Download, Plus, Settings2, TestTubes, Upload } from "lucide-react";
+import { ChevronDown, Crosshair, Download, Plus, Settings2, TestTubes, Upload } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -31,10 +37,13 @@ export function ScreeningDashboard() {
 
   return (
     <div>
-      <PageHeader title="Assays" subtitle="Manage screening protocols and assay runs." />
+      <PageHeader
+        title="Protocols"
+        subtitle="Find an assay, explore its readouts, and review screening runs."
+      />
 
-      <Tabs value={tab} onValueChange={setTab} className="mt-6">
-        <div className="flex items-center justify-between">
+      <Tabs value={tab} onValueChange={setTab} className="mt-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <TabsList>
             <TabsTrigger value="protocols">
               <TestTubes className="mr-2 h-4 w-4" />
@@ -48,21 +57,34 @@ export function ScreeningDashboard() {
 
           {tab === "protocols" && (
             <div className="flex items-center gap-2">
-              {cddEnabled && (
-                <Button variant="outline" onClick={() => setCddImportOpen(true)}>
-                  <Download className="mr-2 h-4 w-4" />
-                  Import from CDD
-                </Button>
-              )}
-              {canCreate && (
-                <Button variant="outline" onClick={() => setCsvImportOpen(true)}>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Import protocols (CSV)
-                </Button>
+              {(cddEnabled || canCreate) && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline">
+                      <Upload className="mr-2 h-4 w-4" />
+                      Import
+                      <ChevronDown className="ml-2 h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {canCreate && (
+                      <DropdownMenuItem onSelect={() => setCsvImportOpen(true)}>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Import protocols (CSV)
+                      </DropdownMenuItem>
+                    )}
+                    {cddEnabled && (
+                      <DropdownMenuItem onSelect={() => setCddImportOpen(true)}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Import from CDD
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
               <Button onClick={() => setCreateProtocolOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
-                New Protocol
+                New protocol
               </Button>
             </div>
           )}
@@ -77,7 +99,7 @@ export function ScreeningDashboard() {
         </div>
 
         <TabsContent value="protocols" className="mt-4">
-          <SetupChecklist />
+          <SetupChecklist compact />
           <ProtocolBrowser
             onNewFrom={canCreate ? setNewFrom : undefined}
             onSelect={(protocolId) => {

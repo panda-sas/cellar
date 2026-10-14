@@ -2,8 +2,25 @@
 
 import type { Protocol } from "@/features/screening-assay/types";
 import { Button } from "@/shared/components/ui/button";
-import { Separator } from "@/shared/components/ui/separator";
-import { RotateCcw, Search } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/shared/components/ui/dropdown-menu";
+import {
+  ChevronDown,
+  ChevronUp,
+  Fingerprint,
+  FlaskConical,
+  Hexagon,
+  Loader2,
+  Plus,
+  RotateCcw,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchCount } from "../../hooks/use-search-count";
 import { ANY_COLUMN_ID, drcColId, rdColId } from "../../lib/protocol-column-id";
@@ -33,6 +50,7 @@ import { KeywordSection } from "./keyword-section";
 import { ProjectFilter } from "./project-filter";
 import { PropertySection } from "./property-section";
 import { type ProtocolConjunction, ProtocolSection } from "./protocol-section";
+import { QuerySummary, type SummaryContext, searchQueryKey } from "./query-summary";
 import { ScaffoldSection } from "./scaffold-section";
 import { StructureSection } from "./structure-section";
 import {
@@ -52,6 +70,11 @@ export const SEARCH_PAGE_SIZE = 100;
 
 interface SearchFormProps {
   initialQuery?: SearchQuery;
+  executedQuery?: SearchQuery | null;
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
+  onDraftChange?: (query: SearchQuery) => void;
+  summaryContext?: SummaryContext;
   projectIds: string[];
   onProjectsChange: (ids: string[]) => void;
   onSearch: (query: SearchQuery, protocolColumns: string[]) => void;
@@ -307,10 +330,68 @@ function containsSimilarity(criteria: SearchCriterion[]): boolean {
   return false;
 }
 
+type FilterSectionKey =
+  | "assays"
+  | "structure"
+  | "identifiers"
+  | "properties"
+  | "collections"
+  | "tags"
+  | "scaffold"
+  | "advanced";
+const FILTER_SECTIONS: { key: FilterSectionKey; label: string }[] = [
+  { key: "assays", label: "Assay activity" },
+  { key: "structure", label: "Structure" },
+  { key: "identifiers", label: "Compound identifiers" },
+  { key: "properties", label: "Properties" },
+  { key: "collections", label: "Collections" },
+  { key: "tags", label: "Tags" },
+  { key: "scaffold", label: "Scaffold" },
+  { key: "advanced", label: "Advanced filters" },
+];
+
+export function countSearchCriteria(criteria: SearchCriterion[]): number {
+  return criteria.reduce(
+    (count, criterion) =>
+      count + (criterion.type === "group" ? countSearchCriteria(criterion.criteria) : 1),
+    0,
+  );
+}
+
+function FilterCard({
+  label,
+  onRemove,
+  children,
+}: { label: string; onRemove: () => void; children: React.ReactNode }) {
+  return (
+    <section
+      aria-label={label}
+      className="relative rounded-xl border border-border/80 bg-background p-3 sm:p-4"
+    >
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        className="absolute right-2 top-2 text-muted-foreground hover:text-destructive"
+        aria-label={`Remove ${label.toLowerCase()} filters`}
+        onClick={onRemove}
+      >
+        <X className="size-3.5" />
+      </Button>
+      <div className="min-w-0 pr-6">{children}</div>
+    </section>
+  );
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function SearchForm({
   initialQuery,
+  executedQuery,
+  collapsed = false,
+  onCollapsedChange,
+  onDraftChange,
+  summaryContext,
   projectIds,
   onProjectsChange,
   onSearch,
@@ -320,6 +401,7 @@ export function SearchForm({
 }: SearchFormProps) {
   // Parse initial query into section states
   const initial = decomposeQuery(initialQuery);
+  const [openedSections, setOpenedSections] = useState<FilterSectionKey[]>([]);
 
   const [activityCriteria, setActivityCriteria] = useState<ActivityCriterion[]>(
     initial.activityCriteria,
@@ -353,6 +435,7 @@ export function SearchForm({
   // biome-ignore lint/correctness/useExhaustiveDependencies: see comment above
   useEffect(() => {
     const parsed = decomposeQuery(initialQuery);
+    setOpenedSections([]);
     setActivityCriteria(parsed.activityCriteria);
     setProtocolConjunctions(
       parsed.protocolConjunctions.length > 0
@@ -559,6 +642,7 @@ export function SearchForm({
   }
 
   function handleReset() {
+    setOpenedSections([]);
     setActivityCriteria([]);
     setProtocolConjunctions([]);
     setStructureCriterion(null);
@@ -575,12 +659,72 @@ export function SearchForm({
   // Compose once per render; both the filter-count display and the live
   // count preview key off the same composed query so they never drift.
   const composedCriteria = composeCriteria();
-  const criteriaCount = composedCriteria.length;
+  const criteriaCount = countSearchCriteria(composedCriteria);
+  const assayCount = activityCriteria.filter(
+    (c) => c.protocol_id === null || !!c.protocol_id,
+  ).length;
+  const otherCount = criteriaCount - assayCount;
+  const criteriaLabel =
+    [
+      assayCount > 0 ? `${assayCount} assay ${assayCount === 1 ? "criterion" : "criteria"}` : "",
+      otherCount > 0
+        ? `${otherCount} ${assayCount > 0 ? "other " : ""}filter${otherCount === 1 ? "" : "s"}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" · ") || "All compounds";
+  const visibleSections = new Set<FilterSectionKey>(openedSections);
+  if (activityCriteria.length) visibleSections.add("assays");
+  if (structureCriterion) visibleSections.add("structure");
+  if (textCriteria.length) visibleSections.add("identifiers");
+  if (propertyCriteria.length) visibleSections.add("properties");
+  if (collectionTerms.length) visibleSections.add("collections");
+  if (tagValue.tagIds.length) visibleSections.add("tags");
+  if (scaffoldCriteria.length) visibleSections.add("scaffold");
+  if (Object.values(advanced).some((terms) => terms.length > 0)) visibleSections.add("advanced");
+
+  function addSection(key: FilterSectionKey) {
+    setOpenedSections((sections) => [...new Set([...sections, key])]);
+    if (key === "identifiers" && !textCriteria.length)
+      setTextCriteria([
+        { type: "text", field: "registration_number", operator: "contains", value: "" },
+      ]);
+    if (key === "properties" && !propertyCriteria.length)
+      setPropertyCriteria([{ type: "property", field: "molecular_weight", operator: "between" }]);
+    if (key === "collections" && !collectionTerms.length)
+      setCollectionTerms([{ collection_id: "", negate: false }]);
+    if (key === "scaffold" && !scaffoldCriteria.length)
+      setScaffoldCriteria([{ type: "scaffold", mode: "exact_match", scaffold_smiles: "" }]);
+  }
+  function removeSection(key: FilterSectionKey) {
+    setOpenedSections((sections) => sections.filter((section) => section !== key));
+    if (key === "assays") {
+      setActivityCriteria([]);
+      setProtocolConjunctions([]);
+    }
+    if (key === "structure") setStructureCriterion(null);
+    if (key === "identifiers") setTextCriteria([]);
+    if (key === "properties") setPropertyCriteria([]);
+    if (key === "collections") setCollectionTerms([]);
+    if (key === "tags") setTagValue(defaultTagSectionValue());
+    if (key === "scaffold") setScaffoldCriteria([]);
+    if (key === "advanced") setAdvanced(emptyAdvancedFilters());
+  }
   // biome-ignore lint/correctness/useExhaustiveDependencies: composedCriteria is rebuilt every render but its serialization is stable across no-op renders, so we key on JSON.stringify so consumers (useSearchCount) can debounce.
   const composedQuery: SearchQuery = useMemo(
     () => ({ criteria: composedCriteria, logic: "and" }),
     [JSON.stringify(composedCriteria)],
   );
+
+  const filtersChanged =
+    !!executedQuery && searchQueryKey(composedQuery) !== searchQueryKey(executedQuery);
+  const filterToggleRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (collapsed) filterToggleRef.current?.focus({ preventScroll: true });
+  }, [collapsed]);
+  useEffect(() => {
+    onDraftChange?.(composedQuery);
+  }, [composedQuery, onDraftChange]);
 
   // Similarity searches return everything above the threshold; the panel only
   // shows the top-K ranked. Surface that distinction so the chemist knows the
@@ -626,133 +770,266 @@ export function SearchForm({
   }, []);
 
   return (
-    <div className="rounded-lg border border-border bg-card overflow-hidden">
-      <div className="p-4 pb-2">
-        {/* Header: projects only — Search/Reset moved to sticky bottom bar. */}
-        <div className="flex items-center justify-between mb-3 pb-3 border-b border-border">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <span className="text-sm font-semibold uppercase tracking-wide text-muted-foreground flex-shrink-0">
-              Projects
-            </span>
+    <div className="rounded-xl border border-border bg-card">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+          <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-sm font-semibold">Search filters</h2>
+          <span className="text-xs text-muted-foreground">
+            {executedQuery && !filtersChanged ? "Applied · " : "Draft · "}
+            {criteriaLabel}
+          </span>
+          {filtersChanged && (
+            <output className="text-xs font-medium text-amber-700 dark:text-amber-400">
+              Changes not applied
+            </output>
+          )}
+        </div>
+        {executedQuery && (
+          <Button
+            ref={filterToggleRef}
+            variant="ghost"
+            size="sm"
+            aria-expanded={!collapsed}
+            aria-controls="search-filter-fields"
+            onClick={() => onCollapsedChange?.(!collapsed)}
+          >
+            {collapsed ? (
+              <ChevronDown className="mr-1.5 h-4 w-4" />
+            ) : (
+              <ChevronUp className="mr-1.5 h-4 w-4" />
+            )}
+            {collapsed ? "Edit filters" : "Collapse filters"}
+          </Button>
+        )}
+      </div>
+      <div id="search-filter-fields" hidden={collapsed}>
+        <div className="space-y-4 border-t p-4">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="font-medium text-muted-foreground">Searching:</span>
             <ProjectFilter selectedIds={projectIds} onChange={onProjectsChange} />
           </div>
-        </div>
 
-        {/* Protocols — full width */}
-        <ProtocolSection
-          criteria={activityCriteria}
-          conjunctions={protocolConjunctions}
-          projectIds={projectIds}
-          protocols={protocols}
-          onChange={(criteria, conjs) => {
-            setActivityCriteria(criteria);
-            setProtocolConjunctions(conjs);
-          }}
-        />
+          {visibleSections.size === 0 && (
+            <div className="space-y-3">
+              <div>
+                <h3 className="text-base font-semibold">What would you like to find?</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Start with a question, then combine filters to narrow your results.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {(
+                  [
+                    {
+                      key: "assays",
+                      label: "Assay activity",
+                      description: "Find tested compounds and set activity thresholds",
+                      Icon: FlaskConical,
+                    },
+                    {
+                      key: "structure",
+                      label: "Structure",
+                      description: "Find a substructure, similar molecules, or an exact match",
+                      Icon: Hexagon,
+                    },
+                    {
+                      key: "identifiers",
+                      label: "Compound identifiers",
+                      description: "Look up compound IDs, names, formulas, or InChIKeys",
+                      Icon: Fingerprint,
+                    },
+                  ] as const
+                ).map(({ key, label, description, Icon }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => addSection(key)}
+                    className="flex items-start gap-3 rounded-xl border border-border bg-background p-4 text-left transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary"
+                  >
+                    <Icon className="mt-0.5 size-5 shrink-0 text-primary" />
+                    <span>
+                      <span className="block text-sm font-semibold">{label}</span>
+                      <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
+                        {description}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
-        <Separator className="my-3" />
-
-        {/* Structure | Properties — two columns */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-4">
-          <StructureSection criterion={structureCriterion} onChange={setStructureCriterion} />
-          <PropertySection criteria={propertyCriteria} onChange={setPropertyCriteria} />
-        </div>
-
-        <Separator className="my-3" />
-
-        {/* Collections | Keywords — two columns */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-4">
-          <CollectionSection
-            terms={collectionTerms}
-            projectIds={projectIds}
-            onChange={setCollectionTerms}
-          />
-          <KeywordSection criteria={textCriteria} onChange={setTextCriteria} />
-        </div>
-
-        <Separator className="my-3" />
-
-        {/* Tags */}
-        <TagSection value={tagValue} onChange={setTagValue} />
-
-        <Separator className="my-3" />
-
-        {/* Scaffold filter section — always rendered so chemists can compose
-            a query against Bemis-Murcko scaffolds directly. The scaffold-tree
-            "find in search" action stashes a criterion in sessionStorage; the
-            page reads it on mount, fires the search, and populates this
-            section so the active filter is visible + editable. */}
-        <ScaffoldSection criteria={scaffoldCriteria} onChange={setScaffoldCriteria} />
-
-        {/* More Filters */}
-        <div className="mt-3 pt-3 border-t border-border">
-          <AdvancedFilters state={advanced} onChange={setAdvanced} />
+          <div className="space-y-3">
+            {visibleSections.has("assays") && (
+              <FilterCard label="Assay activity" onRemove={() => removeSection("assays")}>
+                <ProtocolSection
+                  criteria={activityCriteria}
+                  conjunctions={protocolConjunctions}
+                  projectIds={projectIds}
+                  protocols={protocols}
+                  onChange={(criteria, conjs) => {
+                    setActivityCriteria(criteria);
+                    setProtocolConjunctions(conjs);
+                  }}
+                />
+              </FilterCard>
+            )}
+            {visibleSections.has("structure") && (
+              <FilterCard label="Structure" onRemove={() => removeSection("structure")}>
+                <StructureSection criterion={structureCriterion} onChange={setStructureCriterion} />
+              </FilterCard>
+            )}
+            {visibleSections.has("identifiers") && (
+              <FilterCard
+                label="Compound identifiers"
+                onRemove={() => removeSection("identifiers")}
+              >
+                <KeywordSection criteria={textCriteria} onChange={setTextCriteria} />
+              </FilterCard>
+            )}
+            {visibleSections.has("properties") && (
+              <FilterCard label="Properties" onRemove={() => removeSection("properties")}>
+                <PropertySection criteria={propertyCriteria} onChange={setPropertyCriteria} />
+              </FilterCard>
+            )}
+            {visibleSections.has("collections") && (
+              <FilterCard label="Collections" onRemove={() => removeSection("collections")}>
+                <CollectionSection
+                  terms={collectionTerms}
+                  projectIds={projectIds}
+                  onChange={setCollectionTerms}
+                />
+              </FilterCard>
+            )}
+            {visibleSections.has("tags") && (
+              <FilterCard label="Tags" onRemove={() => removeSection("tags")}>
+                <TagSection value={tagValue} onChange={setTagValue} />
+              </FilterCard>
+            )}
+            {visibleSections.has("scaffold") && (
+              <FilterCard label="Scaffold" onRemove={() => removeSection("scaffold")}>
+                <ScaffoldSection criteria={scaffoldCriteria} onChange={setScaffoldCriteria} />
+              </FilterCard>
+            )}
+            {visibleSections.has("advanced") && (
+              <FilterCard label="Advanced" onRemove={() => removeSection("advanced")}>
+                <AdvancedFilters state={advanced} onChange={setAdvanced} defaultOpen />
+              </FilterCard>
+            )}
+          </div>
+          {visibleSections.size < FILTER_SECTIONS.length && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" size="sm">
+                  <Plus className="size-4" /> Add filter
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {FILTER_SECTIONS.filter(({ key }) => !visibleSections.has(key)).map(
+                  ({ key, label }) => (
+                    <DropdownMenuItem key={key} onSelect={() => addSection(key)}>
+                      {label}
+                    </DropdownMenuItem>
+                  ),
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {visibleSections.size > 1 && (
+            <p className="text-xs text-muted-foreground">
+              Compounds must match all filter sections. Use the assay matching control to choose how
+              assays are combined.
+            </p>
+          )}
         </div>
       </div>
 
       {/* Sticky bottom action bar — pinned within the search panel so it stays
           reachable as the form grows. ⌘/Ctrl+Enter also fires Search. */}
-      <div className="sticky bottom-0 z-10 flex items-center justify-between gap-2 border-t border-border bg-card/95 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-card/80">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleReset}
-          className="text-muted-foreground hover:text-foreground"
-        >
-          <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Reset
-        </Button>
-        <div className="flex items-center gap-3">
-          {/* Forecast lives next to the action, not inside it. The button is
+      {(!collapsed || filtersChanged) && (
+        <div className="sticky bottom-0 z-10 rounded-b-xl border-t border-border bg-card/95 px-4 py-3 shadow-[0_-4px_16px_-12px_rgba(0,0,0,0.25)] backdrop-blur">
+          {criteriaCount > 0 && (
+            <div className="mb-2 line-clamp-2 text-xs text-muted-foreground">
+              <span className="font-medium">
+                {filtersChanged || !executedQuery ? "Draft search: " : "Search: "}
+              </span>
+              <QuerySummary
+                query={composedQuery}
+                context={summaryContext}
+                className="leading-relaxed"
+              />
+            </div>
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleReset}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Reset
+            </Button>
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Forecast lives next to the action, not inside it. The button is
               an action affordance ("click to run"); the count is metadata
               about the composed query ("this many will come back"). Mixing
               the two reads as "Search [these N compounds]" -- the wrong
               semantic. We fall back to the raw filter count only when the
               live preview hasn't returned yet. */}
-          {criteriaCount > 0 && (
-            <span
-              className={`text-xs text-muted-foreground transition-opacity ${
-                countIsFetching ? "opacity-60" : "opacity-100"
-              }`}
-              aria-live="polite"
-            >
-              {countError ? (
-                <span className="font-medium text-destructive" title={countError}>
-                  {countError}
-                </span>
-              ) : totalCount !== undefined ? (
-                <>
-                  <span
-                    className={`tabular-nums ${
-                      totalCount === 0
-                        ? "font-medium text-amber-600 dark:text-amber-500"
-                        : "text-foreground/80"
-                    }`}
-                  >
-                    {totalCount.toLocaleString()}
-                  </span>{" "}
-                  compound{totalCount === 1 ? "" : "s"} match
-                  {isSimilarityQuery && totalCount > SEARCH_PAGE_SIZE && (
-                    <span className="ml-1.5 text-muted-foreground/70">
-                      · ranked, top {SEARCH_PAGE_SIZE} per page
+              {criteriaCount > 0 && (
+                <span
+                  className={`text-xs text-muted-foreground transition-opacity ${
+                    countIsFetching ? "opacity-60" : "opacity-100"
+                  }`}
+                  aria-live="polite"
+                >
+                  {countError ? (
+                    <span className="font-medium text-destructive" title={countError}>
+                      {countError}
                     </span>
+                  ) : countQuery.isDebouncing || countIsFetching ? (
+                    <span>Estimating matches…</span>
+                  ) : totalCount !== undefined ? (
+                    <>
+                      <span
+                        className={`tabular-nums ${
+                          totalCount === 0
+                            ? "font-medium text-amber-600 dark:text-amber-500"
+                            : "text-foreground/80"
+                        }`}
+                      >
+                        {totalCount.toLocaleString()}
+                      </span>{" "}
+                      compound{totalCount === 1 ? "" : "s"} match
+                      {isSimilarityQuery && totalCount > SEARCH_PAGE_SIZE && (
+                        <span className="ml-1.5 text-muted-foreground/70">
+                          · ranked, top {SEARCH_PAGE_SIZE} per page
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {criteriaCount} filter{criteriaCount === 1 ? "" : "s"}
+                    </>
                   )}
-                </>
-              ) : (
-                <>
-                  {criteriaCount} filter{criteriaCount === 1 ? "" : "s"}
-                </>
+                </span>
               )}
-            </span>
-          )}
-          <span className="hidden text-[10px] uppercase tracking-wider text-muted-foreground/60 sm:inline">
-            ⌘ ↵
-          </span>
-          <Button onClick={handleSearch} disabled={isLoading} className="px-5">
-            <Search className="h-4 w-4 mr-2" />
-            Search
-          </Button>
+              <span className="hidden text-[10px] uppercase tracking-wider text-muted-foreground/60 sm:inline">
+                ⌘ ↵
+              </span>
+              <Button onClick={handleSearch} disabled={isLoading} className="px-5">
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4 mr-2" />
+                )}
+                {isLoading ? "Searching…" : filtersChanged ? "Update results" : "Search"}
+              </Button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

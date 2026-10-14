@@ -148,6 +148,17 @@ describe("protocolMatchesSelections / filterProtocols", () => {
 import { buildFacetModel, groupProtocols, shortLabelLookup } from "./protocol-facets";
 
 describe("buildFacetModel (drill-down counts)", () => {
+  it("sorts options alphabetically rather than by frequency", () => {
+    const model = buildFacetModel(
+      [proto({ category: "Zebra" }), proto({ category: "Zebra" }), proto({ category: "alpha" })],
+      {},
+    );
+    expect(model.find((g) => g.dimension === "category")?.values.map((v) => v.label)).toEqual([
+      "alpha",
+      "Zebra",
+    ]);
+  });
+
   const a = proto({ id: "a", protocol_type: "biochemical", category: "Enzyme" });
   const b = proto({ id: "b", protocol_type: "biochemical", category: "enzyme" });
   const c = proto({ id: "c", protocol_type: "cell_based", category: "Whole Cell" });

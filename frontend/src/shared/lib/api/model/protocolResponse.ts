@@ -11,6 +11,7 @@ import type { ProtocolResponseDescription } from './protocolResponseDescription'
 import type { TargetRefResponse } from './targetRefResponse';
 import type { ProtocolResponseCategory } from './protocolResponseCategory';
 import type { ProtocolResponseParentProtocolId } from './protocolResponseParentProtocolId';
+import type { ProtocolResponseCreatedAt } from './protocolResponseCreatedAt';
 import type { ReadoutDefinitionResponse } from './readoutDefinitionResponse';
 import type { ConditionDefinitionResponse } from './conditionDefinitionResponse';
 import type { ProtocolResponseControlLayouts } from './protocolResponseControlLayouts';
@@ -37,6 +38,7 @@ export interface ProtocolResponse {
   protocol_version: number;
   parent_protocol_id?: ProtocolResponseParentProtocolId;
   status: string;
+  created_at?: ProtocolResponseCreatedAt;
   created_by: string;
   dose_unit: string;
   pos_control_signal: string;

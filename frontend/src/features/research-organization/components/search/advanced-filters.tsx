@@ -746,12 +746,13 @@ export function emptyAdvancedFilters(): AdvancedFiltersState {
 }
 
 interface AdvancedFiltersProps {
+  defaultOpen?: boolean;
   state: AdvancedFiltersState;
   onChange: (state: AdvancedFiltersState) => void;
 }
 
-export function AdvancedFilters({ state, onChange }: AdvancedFiltersProps) {
-  const [open, setOpen] = useState(false);
+export function AdvancedFilters({ state, onChange, defaultOpen = false }: AdvancedFiltersProps) {
+  const [open, setOpen] = useState(defaultOpen);
 
   const totalTerms =
     state.selectivity.length +
@@ -776,7 +777,7 @@ export function AdvancedFilters({ state, onChange }: AdvancedFiltersProps) {
         >
           <span className="flex items-center gap-2 text-sm font-medium">
             {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            More Filters
+            Advanced filters
             {totalTerms > 0 && (
               <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
                 {totalTerms}
