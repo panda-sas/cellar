@@ -70,5 +70,5 @@ CLAUDE.md
 
 backend/data/
 
-# Agent git worktrees (transient)
-.claude/worktrees/
+# Claude Code project dir: skills stay local, lock and settings files never ship
+.claude/
